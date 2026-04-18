@@ -1,50 +1,25 @@
 // =====================
-// AUTH CHECK
+// CONFIG
+// =====================
+const API_URL = "https://crm-backend-tuql.onrender.com/api";
+
+// =====================
+// AUTH
 // =====================
 const token = localStorage.getItem("token");
-if (!token) window.location.href = "/index.html";
+const user = JSON.parse(localStorage.getItem("user"));
 
-// =====================
-// GLOBALS
-// =====================
-const API_URL = "http://localhost:5000/api";
-let allLoans = [];
-let currentUser = JSON.parse(localStorage.getItem("user") || "{}");
-let chart;
-
-// =====================
-// LOADER + TOAST
-// =====================
-function showLoader() {
-  document.getElementById("loader").style.display = "flex";
-}
-function hideLoader() {
-  document.getElementById("loader").style.display = "none";
-}
-
-function showToast(msg, type = "success") {
-  const t = document.createElement("div");
-  t.innerText = msg;
-  Object.assign(t.style, {
-    position: "fixed",
-    bottom: "20px",
-    right: "20px",
-    padding: "12px",
-    borderRadius: "8px",
-    color: "#fff",
-    background: type === "error" ? "#ef4444" : "#22c55e"
-  });
-  document.body.appendChild(t);
-  setTimeout(() => t.remove(), 2500);
+if (!token) {
+  window.location.href = "/index.html";
 }
 
 // =====================
-// API
+// API HELPER
 // =====================
 async function apiFetch(endpoint, options = {}) {
-  try {
-    showLoader();
+  showLoader(true);
 
+  try {
     const res = await fetch(`${API_URL}${endpoint}`, {
       ...options,
       headers: {
@@ -53,30 +28,112 @@ async function apiFetch(endpoint, options = {}) {
       }
     });
 
-    if (res.status === 401) {
-      localStorage.clear();
-      location.href = "/index.html";
-      return;
-    }
-
     const data = await res.json();
-    hideLoader();
+
+    if (!res.ok) throw new Error(data.message);
+
     return data;
 
   } catch (err) {
-    hideLoader();
-    showToast("Server error", "error");
+    showToast(err.message, "error");
+  } finally {
+    showLoader(false);
+  }
+}
+
+// =====================
+// LOADER
+// =====================
+function showLoader(show) {
+  let loader = document.getElementById("loader");
+
+  if (!loader) {
+    loader = document.createElement("div");
+    loader.id = "loader";
+    loader.innerText = "Loading...";
+    Object.assign(loader.style, {
+      position: "fixed",
+      top: 0,
+      left: 0,
+      width: "100%",
+      height: "100%",
+      background: "rgba(0,0,0,0.6)",
+      display: "flex",
+      justifyContent: "center",
+      alignItems: "center",
+      color: "#fff",
+      zIndex: 9999
+    });
+    document.body.appendChild(loader);
+  }
+
+  loader.style.display = show ? "flex" : "none";
+}
+
+// =====================
+// TOAST
+// =====================
+function showToast(msg, type = "success") {
+  const toast = document.createElement("div");
+  toast.innerText = msg;
+
+  Object.assign(toast.style, {
+    position: "fixed",
+    bottom: "20px",
+    right: "20px",
+    padding: "10px",
+    borderRadius: "8px",
+    color: "#fff",
+    background: type === "error" ? "#ef4444" : "#22c55e"
+  });
+
+  document.body.appendChild(toast);
+  setTimeout(() => toast.remove(), 2500);
+}
+
+// =====================
+// ROLE UI
+// =====================
+function applyRoleUI() {
+  document.querySelector(".profile").innerText = user?.role || "User";
+
+  if (user.role !== "admin") {
+    document.querySelector('[onclick="showSection(\'users\')"]').style.display = "none";
   }
 }
 
 // =====================
 // NAVIGATION
 // =====================
-function showSection(s) {
-  ["dashboard", "users", "loans"].forEach(x => {
-    document.getElementById(x + "Section").style.display = "none";
+function showSection(section) {
+  ["dashboard", "users", "loans"].forEach(s => {
+    document.getElementById(s + "Section").style.display = "none";
   });
-  document.getElementById(s + "Section").style.display = "block";
+
+  document.getElementById(section + "Section").style.display = "block";
+}
+
+// =====================
+// EMI
+// =====================
+function calculateEMI(amount, interest, tenure) {
+  const r = interest / 12 / 100;
+  return Math.round((amount * r * Math.pow(1 + r, tenure)) /
+    (Math.pow(1 + r, tenure) - 1));
+}
+
+// =====================
+// DASHBOARD
+// =====================
+async function loadStats() {
+  const data = await apiFetch("/dashboard");
+  if (!data) return;
+
+  totalUsers.innerText = data.totalUsers;
+  totalLoans.innerText = data.totalLoans;
+  approvedLoans.innerText = data.approvedLoans;
+  pendingLoans.innerText = data.pendingLoans;
+  rejectedLoans.innerText = data.rejectedLoans;
 }
 
 // =====================
@@ -84,159 +141,108 @@ function showSection(s) {
 // =====================
 async function loadUsers() {
   const users = await apiFetch("/users");
+  if (!users) return;
 
-  let html = "";
-  users.forEach(u => {
-    html += `<tr><td>${u.name}</td><td>${u.email}</td></tr>`;
-  });
+  usersTable.innerHTML = users.map(u => `
+    <tr>
+      <td>${u.name}</td>
+      <td>${u.email}</td>
+      <td><button onclick="deleteUser('${u._id}')">Delete</button></td>
+    </tr>
+  `).join("");
+}
 
-  document.getElementById("usersTable").innerHTML = html;
+async function deleteUser(id) {
+  await apiFetch(`/users/${id}`, { method: "DELETE" });
+  showToast("User deleted");
+  loadUsers();
 }
 
 // =====================
 // LOANS
 // =====================
+let allLoans = [];
+
 async function loadLoans() {
   const loans = await apiFetch("/loans");
+  if (!loans) return;
 
   allLoans = loans;
   displayLoans(loans);
-  loadChart();
-
-  showToast("Loans loaded");
 }
 
 function displayLoans(loans) {
-  let html = "";
-
-  loans.forEach(l => {
-    const isAdmin = currentUser.role === "admin";
-
-    html += `
-      <tr>
-        <td>${l.userId?.name || ""}</td>
-        <td>${l.userId?.email || ""}</td>
-        <td>${l.amount}</td>
-        <td>${l.status}</td>
-        <td>
-          ${isAdmin ? `
-            <button onclick="updateStatus('${l._id}','approved')">✔</button>
-            <button onclick="updateStatus('${l._id}','rejected')">✖</button>
-          ` : "View"}
-        </td>
-      </tr>
-    `;
-  });
-
-  document.getElementById("loansTable").innerHTML = html;
+  loansTable.innerHTML = loans.map(l => `
+    <tr>
+      <td>${l._id.slice(-6)}</td>
+      <td>${l.userId?.name || "-"}</td>
+      <td>${l.userId?.email || "-"}</td>
+      <td>₹ ${l.amount.toLocaleString()}</td>
+      <td>₹ ${calculateEMI(l.amount, l.interest, l.tenure)}</td>
+      <td><span class="badge ${l.status}">${l.status}</span></td>
+      <td>
+        <button onclick="updateStatus('${l._id}','approved')">✔</button>
+        <button onclick="updateStatus('${l._id}','rejected')">✖</button>
+        <button onclick="deleteLoan('${l._id}')">🗑</button>
+      </td>
+    </tr>
+  `).join("");
 }
 
-// =====================
-// FILTER
-// =====================
-function filterLoans() {
-  const s = document.getElementById("searchInput").value.toLowerCase();
-  const f = document.getElementById("statusFilter").value;
-
-  let data = allLoans;
-
-  if (s) {
-    data = data.filter(l =>
-      (l.userId?.name || "").toLowerCase().includes(s) ||
-      (l.userId?.email || "").toLowerCase().includes(s)
-    );
-  }
-
-  if (f) {
-    data = data.filter(l => l.status === f);
-  }
-
-  displayLoans(data);
-}
-
-// =====================
-// CRUD
-// =====================
 async function updateStatus(id, status) {
   await apiFetch(`/loans/${id}`, {
     method: "PUT",
     body: JSON.stringify({ status })
   });
-
-  loadLoans();
   showToast("Updated");
-}
-
-async function submitLoan() {
-  const amount = document.getElementById("loanAmount").value;
-  const interest = document.getElementById("loanInterest").value;
-  const tenure = document.getElementById("loanTenure").value;
-
-  await apiFetch("/loans", {
-    method: "POST",
-    body: JSON.stringify({ amount, interest, tenure })
-  });
-
-  closeLoanModal();
   loadLoans();
-  showToast("Loan created");
+  loadStats();
+}
+
+async function deleteLoan(id) {
+  await apiFetch(`/loans/${id}`, { method: "DELETE" });
+  showToast("Deleted");
+  loadLoans();
 }
 
 // =====================
-// MODAL
+// SEARCH
 // =====================
-function openLoanModal() {
-  document.getElementById("loanModal").style.display = "flex";
-}
-function closeLoanModal() {
-  document.getElementById("loanModal").style.display = "none";
+function searchLoans(value) {
+  const filtered = allLoans.filter(l =>
+    l.userId?.name?.toLowerCase().includes(value.toLowerCase()) ||
+    l._id.includes(value)
+  );
+  displayLoans(filtered);
 }
 
 // =====================
 // CHART
 // =====================
-function loadChart() {
-  let a=0,p=0,r=0;
+let chart;
 
-  allLoans.forEach(l=>{
-    if(l.status==="approved") a++;
-    else if(l.status==="rejected") r++;
-    else p++;
-  });
+async function loadChart() {
+  const data = await apiFetch("/dashboard");
+  if (!data) return;
 
-  approvedCount.innerText=a;
-  pendingCount.innerText=p;
-  rejectedCount.innerText=r;
+  const ctx = document.getElementById("loanChart");
 
-  const ctx = loanChart.getContext("2d");
-  if(chart) chart.destroy();
+  if (chart) chart.destroy();
 
-  chart = new Chart(ctx,{
-    type:"bar",
-    data:{
-      labels:["Approved","Pending","Rejected"],
-      datasets:[{label:"Loans",data:[a,p,r]}]
+  chart = new Chart(ctx, {
+    type: "bar",
+    data: {
+      labels: ["Approved", "Pending", "Rejected"],
+      datasets: [{
+        label: "Loans",
+        data: [
+          data.approvedLoans,
+          data.pendingLoans,
+          data.rejectedLoans
+        ]
+      }]
     }
   });
-}
-
-// =====================
-// EXPORT
-// =====================
-function exportCSV() {
-  let csv="Name,Email,Amount,Status\n";
-
-  allLoans.forEach(l=>{
-    csv+=`${l.userId?.name||""},${l.userId?.email||""},${l.amount},${l.status}\n`;
-  });
-
-  const blob=new Blob([csv]);
-  const url=URL.createObjectURL(blob);
-
-  const a=document.createElement("a");
-  a.href=url;
-  a.download="loans.csv";
-  a.click();
 }
 
 // =====================
@@ -244,17 +250,16 @@ function exportCSV() {
 // =====================
 function logout() {
   localStorage.clear();
-  location.href="/index.html";
+  window.location.href = "/index.html";
 }
 
 // =====================
 // INIT
 // =====================
 window.onload = () => {
-  if (currentUser.role !== "admin") {
-    document.getElementById("addLoanBtn").style.display = "none";
-  }
-
+  applyRoleUI();
+  loadStats();
   loadUsers();
   loadLoans();
+  loadChart();
 };
