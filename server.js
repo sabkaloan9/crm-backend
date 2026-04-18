@@ -15,7 +15,7 @@ app.use(cors()); // allow all origins
 // ROOT ROUTE (IMPORTANT)
 // ======================
 app.get("/", (req, res) => {
-  res.send("🚀 CRM Backend API Running");
+  res.send("🚀 API is running");
 });
 
 // ======================
