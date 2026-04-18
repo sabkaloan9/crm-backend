@@ -10,7 +10,7 @@ const token = localStorage.getItem("token");
 const user = JSON.parse(localStorage.getItem("user"));
 
 if (!token) {
-  window.location.href = "/index.html";
+  window.location.href = "index.html";
 }
 
 // =====================
@@ -28,9 +28,14 @@ async function apiFetch(endpoint, options = {}) {
       }
     });
 
-    const data = await res.json();
+    let data;
+    try {
+      data = await res.json();
+    } catch {
+      data = { message: "Invalid response" };
+    }
 
-    if (!res.ok) throw new Error(data.message);
+    if (!res.ok) throw new Error(data.message || "API Error");
 
     return data;
 
@@ -97,8 +102,9 @@ function showToast(msg, type = "success") {
 function applyRoleUI() {
   document.querySelector(".profile").innerText = user?.role || "User";
 
-  if (user.role !== "admin") {
-    document.querySelector('[onclick="showSection(\'users\')"]').style.display = "none";
+  if (user?.role !== "admin") {
+    const btn = document.querySelector('[onclick="showSection(\'users\')"]');
+    if (btn) btn.style.display = "none";
   }
 }
 
@@ -107,10 +113,12 @@ function applyRoleUI() {
 // =====================
 function showSection(section) {
   ["dashboard", "users", "loans"].forEach(s => {
-    document.getElementById(s + "Section").style.display = "none";
+    const el = document.getElementById(s + "Section");
+    if (el) el.style.display = "none";
   });
 
-  document.getElementById(section + "Section").style.display = "block";
+  const active = document.getElementById(section + "Section");
+  if (active) active.style.display = "block";
 }
 
 // =====================
@@ -179,7 +187,7 @@ function displayLoans(loans) {
       <td>${l.userId?.email || "-"}</td>
       <td>₹ ${l.amount.toLocaleString()}</td>
       <td>₹ ${calculateEMI(l.amount, l.interest, l.tenure)}</td>
-      <td><span class="badge ${l.status}">${l.status}</span></td>
+      <td>${l.status}</td>
       <td>
         <button onclick="updateStatus('${l._id}','approved')">✔</button>
         <button onclick="updateStatus('${l._id}','rejected')">✖</button>
@@ -217,40 +225,11 @@ function searchLoans(value) {
 }
 
 // =====================
-// CHART
-// =====================
-let chart;
-
-async function loadChart() {
-  const data = await apiFetch("/dashboard");
-  if (!data) return;
-
-  const ctx = document.getElementById("loanChart");
-
-  if (chart) chart.destroy();
-
-  chart = new Chart(ctx, {
-    type: "bar",
-    data: {
-      labels: ["Approved", "Pending", "Rejected"],
-      datasets: [{
-        label: "Loans",
-        data: [
-          data.approvedLoans,
-          data.pendingLoans,
-          data.rejectedLoans
-        ]
-      }]
-    }
-  });
-}
-
-// =====================
 // LOGOUT
 // =====================
 function logout() {
   localStorage.clear();
-  window.location.href = "/index.html";
+  window.location.href = "index.html";
 }
 
 // =====================
@@ -261,5 +240,4 @@ window.onload = () => {
   loadStats();
   loadUsers();
   loadLoans();
-  loadChart();
 };
