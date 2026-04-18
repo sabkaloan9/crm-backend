@@ -1,52 +1,40 @@
 require("dotenv").config();
 const express = require("express");
 const mongoose = require("mongoose");
-const path = require("path");
 const cors = require("cors");
 
 const app = express();
 
 // =====================
-// MIDDLEWARE
-// =====================
 app.use(cors());
 app.use(express.json());
 
 // =====================
-// ROUTES
+// ROUTES (IMPORTANT)
 // =====================
-app.use("/api/auth", require("./routes/auth"));
-app.use("/api/users", require("./routes/userRoutes"));
-app.use("/api/loans", require("./routes/loanRoutes"));
-app.use("/api/dashboard", require("./routes/dashboardRoutes"));
+const authRoutes = require("./routes/auth");
+const userRoutes = require("./routes/userRoutes");
+const loanRoutes = require("./routes/loanRoutes");
+const dashboardRoutes = require("./routes/dashboardRoutes");
 
-// =====================
-// ROOT ROUTE (IMPORTANT)
+app.use("/api/auth", authRoutes);
+app.use("/api/users", userRoutes);
+app.use("/api/loans", loanRoutes);
+app.use("/api/dashboard", dashboardRoutes);
+
 // =====================
 app.get("/", (req, res) => {
-  res.send("🚀 CRM Backend Running");
+  res.send("API working 🚀");
 });
 
-// =====================
-// STATIC FRONTEND (OPTIONAL)
-// =====================
-app.use(express.static(path.join(__dirname, "frontend")));
-
-app.get("*", (req, res) => {
-  res.sendFile(path.join(__dirname, "frontend", "index.html"));
-});
-
-// =====================
-// DB CONNECT
 // =====================
 mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log("MongoDB Connected ✅"))
-  .catch(err => console.log("DB Error ❌", err));
+  .catch(err => console.log(err));
 
 // =====================
-// SERVER START
-// =====================
 const PORT = process.env.PORT || 5000;
+
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT} ✅`);
+  console.log("Server running on port " + PORT);
 });
