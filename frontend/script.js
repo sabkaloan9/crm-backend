@@ -1,7 +1,7 @@
 // =====================
 // CONFIG
 // =====================
-const API_URL = "https://crm-backend-tuql.onrender.com/api";
+const API_URL = "https://crm-backend-9kb2.onrender.com/api";
 
 // =====================
 // AUTH
