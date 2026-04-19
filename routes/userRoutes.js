@@ -1,40 +1,81 @@
 const router = require("express").Router();
 const User = require("../models/User");
 
-// 🔐 MIDDLEWARE
 const auth = require("../middleware/auth");
-const role = require("../middleware/roleMiddleware");
+const { requireRole, requirePermission } = require("../middleware/rbac");
 
 const { register, login } = require("../controllers/authController");
 
 // =====================
-// AUTH ROUTES (PUBLIC)
+// AUTH (PUBLIC)
 // =====================
 router.post("/register", register);
 router.post("/login", login);
 
 // =====================
-// GET ALL USERS (ADMIN ONLY)
+// GET USERS (PAGINATED + RBAC)
 // =====================
-router.get("/", auth, role(["admin"]), async (req, res) => {
-  try {
-    const users = await User.find().select("-password"); // hide password
-    res.json(users);
-  } catch (err) {
-    res.status(500).json(err);
+router.get(
+  "/",
+  auth,
+  requireRole(["superadmin", "admin"]),
+  requirePermission(["user.view"]),
+  async (req, res) => {
+    try {
+      const page = parseInt(req.query.page) || 1;
+      const limit = parseInt(req.query.limit) || 10;
+      const skip = (page - 1) * limit;
+
+      const users = await User.find()
+        .select("-password")
+        .skip(skip)
+        .limit(limit)
+        .sort({ createdAt: -1 });
+
+      const total = await User.countDocuments();
+
+      res.json({
+        data: users,
+        total,
+        page,
+        pages: Math.ceil(total / limit)
+      });
+
+    } catch (err) {
+      res.status(500).json({ message: "Server error" });
+    }
   }
-});
+);
 
 // =====================
-// DELETE USER (ADMIN ONLY)
+// DELETE USER (SAFE + RBAC)
 // =====================
-router.delete("/:id", auth, role(["admin"]), async (req, res) => {
-  try {
-    await User.findByIdAndDelete(req.params.id);
-    res.json({ message: "User deleted" });
-  } catch (err) {
-    res.status(500).json(err);
+router.delete(
+  "/:id",
+  auth,
+  requireRole(["superadmin", "admin"]),
+  requirePermission(["user.delete"]),
+  async (req, res) => {
+    try {
+      // 🚨 prevent self-delete accident
+      if (req.user.id === req.params.id) {
+        return res.status(400).json({
+          message: "You cannot delete your own account"
+        });
+      }
+
+      const deleted = await User.findByIdAndDelete(req.params.id);
+
+      if (!deleted) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      res.json({ message: "User deleted successfully" });
+
+    } catch (err) {
+      res.status(500).json({ message: "Server error" });
+    }
   }
-});
+);
 
 module.exports = router;

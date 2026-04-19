@@ -1,78 +1,93 @@
 const Loan = require("../models/Loan");
 const User = require("../models/User");
 
-// Apply Loan
+// =====================
+// APPLY LOAN (FIXED SaaS)
+// =====================
 const applyLoan = async (req, res) => {
   try {
-    const { userId, amount, interest, tenure } = req.body;
+    const { amount, interest, tenure } = req.body;
 
-    const emi = (amount * interest) / 100 / tenure;
-
-    const loan = new Loan({
-      userId,
+    const loan = await Loan.create({
+      userId: req.user._id, // ✅ FIXED
       amount,
       interest,
       tenure,
-      emi,
+      status: "pending"
     });
 
-    const savedLoan = await loan.save();
+    // 🔥 SOCKET EVENT
+    req.app.get("io").emit("loanUpdated");
 
-    res.json(savedLoan);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(201).json(loan);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 };
 
-// Get All Loans
+// =====================
+// GET LOANS (ROLE SAFE)
+// =====================
 const getLoans = async (req, res) => {
   try {
-    const loans = await Loan.find()
-      .populate("userId")
+    const query =
+      req.user.role === "admin"
+        ? {}
+        : { userId: req.user._id };
+
+    const loans = await Loan.find(query)
+      .populate("userId", "name email")
       .sort({ createdAt: -1 });
 
     res.json(loans);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 };
 
-// Update Loan Status
+// =====================
+// UPDATE STATUS (ADMIN)
+// =====================
 const updateLoanStatus = async (req, res) => {
   try {
-    const { id } = req.params;
     const { status } = req.body;
 
-    const loan = await Loan.findByIdAndUpdate(
-      id,
+    const updated = await Loan.findByIdAndUpdate(
+      req.params.id,
       { status },
       { new: true }
     );
 
-    res.json(loan);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
+    // 🔥 SOCKET EVENT
+    req.app.get("io").emit("loanUpdated");
+
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 };
 
-// Delete Loan
+// =====================
+// DELETE LOAN
+// =====================
 const deleteLoan = async (req, res) => {
   try {
-    const { id } = req.params;
+    await Loan.findByIdAndDelete(req.params.id);
 
-    await Loan.findByIdAndDelete(id);
+    req.app.get("io").emit("loanUpdated");
 
-    res.json({ message: "Loan deleted successfully" });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.json({ message: "Deleted" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 };
 
-// Dashboard Stats
+// =====================
+// DASHBOARD STATS
+// =====================
 const getDashboardStats = async (req, res) => {
   try {
     const totalLoans = await Loan.countDocuments();
-
     const approvedLoans = await Loan.countDocuments({ status: "approved" });
     const pendingLoans = await Loan.countDocuments({ status: "pending" });
     const rejectedLoans = await Loan.countDocuments({ status: "rejected" });
@@ -80,14 +95,14 @@ const getDashboardStats = async (req, res) => {
     const totalUsers = await User.countDocuments();
 
     res.json({
-      totalUsers,
       totalLoans,
       approvedLoans,
       pendingLoans,
       rejectedLoans,
+      totalUsers
     });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 };
 

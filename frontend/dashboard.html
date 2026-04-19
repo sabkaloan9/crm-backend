@@ -1,129 +1,76 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>CRM SaaS</title>
+<meta charset="UTF-8">
+<title>CRM Dashboard</title>
 
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
 
-  <style>
-    body {
-      margin: 0;
-      font-family: "Inter", sans-serif;
-      background: #0b1220;
-      color: #e5e7eb;
-    }
+<style>
+body { margin:0; font-family:Arial; background:#0b1220; color:white; }
+.app { display:flex; }
 
-    .app { display: flex; min-height: 100vh; }
+/* SIDEBAR */
+.sidebar {
+  width:220px;
+  background:#0f172a;
+  padding:20px;
+  height:100vh;
+}
+.sidebar h2 { color:#38bdf8; }
 
-    .sidebar {
-      width: 250px;
-      background: #0f172a;
-      padding: 20px;
-      border-right: 1px solid #1f2937;
-    }
+.sidebar button {
+  width:100%;
+  padding:10px;
+  margin:10px 0;
+  background:#1e293b;
+  border:none;
+  color:white;
+  border-radius:8px;
+  cursor:pointer;
+}
 
-    .menu button {
-      width: 100%;
-      margin-bottom: 10px;
-      padding: 10px;
-      background: none;
-      border: none;
-      color: #cbd5e1;
-      border-radius: 8px;
-      text-align: left;
-      cursor: pointer;
-    }
+/* MAIN */
+.main { flex:1; padding:20px; }
 
-    .menu button:hover {
-      background: #1e293b;
-      color: white;
-    }
+/* CARDS */
+.cards {
+  display:grid;
+  grid-template-columns:repeat(5,1fr);
+  gap:15px;
+}
+.card {
+  background:#111827;
+  padding:20px;
+  border-radius:12px;
+}
 
-    .main { flex: 1; padding: 20px; }
+/* TABLE */
+table {
+  width:100%;
+  margin-top:20px;
+  border-collapse:collapse;
+  background:#111827;
+}
+th, td {
+  padding:12px;
+  border-bottom:1px solid #1f2937;
+}
 
-    .card {
-      background: #111827;
-      padding: 15px;
-      border-radius: 12px;
-      margin-bottom: 15px;
-      border: 1px solid #1f2937;
-    }
+/* BUTTONS */
+button.action {
+  margin-right:5px;
+  padding:5px 8px;
+  border:none;
+  border-radius:6px;
+  cursor:pointer;
+}
+.approve { background:#16a34a; }
+.reject { background:#dc2626; }
 
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      background: #0f172a;
-      border-radius: 10px;
-    }
-
-    th, td {
-      padding: 12px;
-      border-bottom: 1px solid #1f2937;
-    }
-
-    tr:hover { background: #111827; }
-
-    input, select {
-      padding: 8px;
-      border-radius: 6px;
-      border: none;
-      background: #1e293b;
-      color: white;
-    }
-
-    .btn-blue {
-      background: #3b82f6;
-      color: white;
-      padding: 6px 10px;
-      border-radius: 6px;
-      cursor: pointer;
-      border: none;
-    }
-
-    /* LOADER */
-    #loader {
-      position: fixed;
-      top:0; left:0;
-      width:100%; height:100%;
-      background: rgba(0,0,0,0.6);
-      display: none;
-      justify-content:center;
-      align-items:center;
-      z-index:9999;
-    }
-
-    #loader div {
-      width: 50px;
-      height: 50px;
-      border: 5px solid #3b82f6;
-      border-top: 5px solid transparent;
-      border-radius: 50%;
-      animation: spin 1s linear infinite;
-    }
-
-    @keyframes spin {
-      100% { transform: rotate(360deg); }
-    }
-
-    /* MODAL */
-    #loanModal {
-      display: none;
-      position: fixed;
-      top:0; left:0;
-      width:100%; height:100%;
-      background: rgba(0,0,0,0.6);
-      justify-content:center;
-      align-items:center;
-    }
-
-    #loanModal div {
-      background:#1e293b;
-      padding:20px;
-      border-radius:10px;
-      width:300px;
-    }
-  </style>
+.admin-only { display:inline-block; }
+</style>
 </head>
 
 <body>
@@ -132,84 +79,55 @@
 
   <!-- SIDEBAR -->
   <div class="sidebar">
-    <h2 style="color:#38bdf8;">CRM SaaS</h2>
+    <h2>CRM SaaS</h2>
 
-    <div class="menu">
-      <button onclick="showSection('dashboard')">📊 Dashboard</button>
-      <button onclick="showSection('users')">👤 Users</button>
-      <button onclick="showSection('loans')">💰 Loans</button>
-      <button onclick="logout()">🚪 Logout</button>
+    <!-- ✅ REQUIRED (FIXES ERROR) -->
+    <div>
+      👤 <span id="userName">User</span><br>
+      🔐 Role: <span id="userRole">-</span>
     </div>
+
+    <button onclick="logout()">Logout</button>
   </div>
 
   <!-- MAIN -->
   <div class="main">
 
-    <!-- DASHBOARD -->
-    <div id="dashboardSection" class="card">
-      <h3>Analytics</h3>
+    <h2>Dashboard</h2>
 
-      <p>Approved: <span id="approvedCount">0</span></p>
-      <p>Pending: <span id="pendingCount">0</span></p>
-      <p>Rejected: <span id="rejectedCount">0</span></p>
-
-      <canvas id="loanChart" height="100"></canvas>
-
-      <br>
-      <button onclick="exportCSV()" class="btn-blue">📄 Export CSV</button>
+    <!-- CARDS -->
+    <div class="cards">
+      <div class="card">Total Loans: <span id="totalLoans">0</span></div>
+      <div class="card">Approved: <span id="approvedCount">0</span></div>
+      <div class="card">Pending: <span id="pendingCount">0</span></div>
+      <div class="card">Rejected: <span id="rejectedCount">0</span></div>
+      <div class="card">Users: <span id="totalUsers">0</span></div>
     </div>
 
-    <!-- USERS -->
-    <div id="usersSection" class="card" style="display:none;">
-      <h3>Users</h3>
-      <table>
-        <tbody id="usersTable"></tbody>
-      </table>
-    </div>
+    <!-- CHART -->
+    <canvas id="chart"></canvas>
 
     <!-- LOANS -->
-    <div id="loansSection" class="card" style="display:none;">
-      <h3>Loans</h3>
+    <h3>Loans</h3>
 
-      <div style="margin:10px 0; display:flex; gap:10px;">
-        <input id="searchInput" placeholder="Search..." onkeyup="filterLoans()">
-        <select id="statusFilter" onchange="filterLoans()">
-          <option value="">All</option>
-          <option value="approved">Approved</option>
-          <option value="pending">Pending</option>
-          <option value="rejected">Rejected</option>
-        </select>
-      </div>
+    <button onclick="createLoan()">➕ Create Loan</button>
 
-      <button id="addLoanBtn" onclick="openLoanModal()" class="btn-blue">
-        ➕ Add Loan
-      </button>
-
-      <table>
-        <tbody id="loansTable"></tbody>
-      </table>
-    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>User</th>
+          <th>Amount</th>
+          <th>Status</th>
+          <th>Date</th>
+          <th class="admin-only">Action</th>
+        </tr>
+      </thead>
+      <tbody id="loanTable"></tbody>
+    </table>
 
   </div>
 </div>
 
-<!-- MODAL -->
-<div id="loanModal">
-  <div>
-    <h3>Add Loan</h3>
-    <input id="loanAmount" placeholder="Amount"><br><br>
-    <input id="loanInterest" placeholder="Interest"><br><br>
-    <input id="loanTenure" placeholder="Tenure"><br><br>
-
-    <button onclick="submitLoan()" class="btn-blue">Submit</button>
-    <button onclick="closeLoanModal()">Cancel</button>
-  </div>
-</div>
-
-<!-- LOADER -->
-<div id="loader"><div></div></div>
-
-<script src="script.js"></script>
-
+<script src="script.js?v=2"></script>
 </body>
 </html>

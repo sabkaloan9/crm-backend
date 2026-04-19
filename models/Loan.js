@@ -2,21 +2,24 @@ const mongoose = require("mongoose");
 
 const loanSchema = new mongoose.Schema(
   {
-    // 🔥 LINK TO USER (VERY IMPORTANT)
+    // 👤 OWNER
     userId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true
     },
 
+    // 💰 LOAN DETAILS
     amount: {
       type: Number,
-      required: true
+      required: true,
+      min: 1
     },
 
     interest: {
       type: Number,
-      required: true
+      required: true,
+      min: 0
     },
 
     tenure: {
@@ -24,9 +27,64 @@ const loanSchema = new mongoose.Schema(
       required: true
     },
 
+    // 📊 LOAN STATUS (ENTERPRISE WORKFLOW)
     status: {
       type: String,
-      default: "pending" // pending / approved / rejected
+      enum: ["pending", "approved", "rejected", "closed"],
+      default: "pending"
+    },
+
+    // 👑 APPROVAL TRACKING
+    approvedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null
+    },
+
+    rejectedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null
+    },
+
+    // 🧠 BUSINESS METADATA
+    emiAmount: {
+      type: Number,
+      default: 0
+    },
+
+    totalPayable: {
+      type: Number,
+      default: 0
+    },
+
+    remainingAmount: {
+      type: Number,
+      default: 0
+    },
+
+    // 📅 IMPORTANT DATES
+    startDate: {
+      type: Date,
+      default: null
+    },
+
+    endDate: {
+      type: Date,
+      default: null
+    },
+
+    // 🔐 AUDIT / TRACKING (SAAS LEVEL)
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null
+    },
+
+    updatedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null
     }
   },
   {

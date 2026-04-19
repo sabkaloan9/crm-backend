@@ -19,7 +19,7 @@
       background: #1e293b;
       padding: 30px;
       border-radius: 10px;
-      width: 300px;
+      width: 320px;
     }
 
     input {
@@ -28,6 +28,7 @@
       margin: 10px 0;
       border-radius: 6px;
       border: none;
+      outline: none;
     }
 
     button {
@@ -38,6 +39,7 @@
       border: none;
       border-radius: 6px;
       cursor: pointer;
+      transition: 0.2s;
     }
 
     button:disabled {
@@ -47,6 +49,7 @@
     .error {
       color: #ef4444;
       margin-top: 10px;
+      font-size: 14px;
     }
   </style>
 </head>
@@ -54,10 +57,10 @@
 <body>
 
   <div class="box">
-    <h2>Login</h2>
+    <h2>CRM Login</h2>
 
     <form id="loginForm">
-      <input id="username" placeholder="Email" required />
+      <input id="email" type="email" placeholder="Email" required />
       <input id="password" type="password" placeholder="Password" required />
       <button type="submit" id="loginBtn">Login</button>
     </form>
@@ -66,77 +69,80 @@
   </div>
 
   <script>
+    // =====================
+    // PRODUCTION API
+    // =====================
+    const API = "https://crm-backend-9kb2.onrender.com";
+
+    const form = document.getElementById("loginForm");
+    const errorMsg = document.getElementById("errorMsg");
+    const loginBtn = document.getElementById("loginBtn");
+
+    // =====================
+    // AUTO LOGIN CHECK
+    // =====================
     document.addEventListener("DOMContentLoaded", () => {
-
-      const form = document.getElementById("loginForm");
-      const errorMsg = document.getElementById("errorMsg");
-      const loginBtn = document.getElementById("loginBtn");
-
-      if (!form) {
-        console.error("loginForm not found");
-        return;
+      const token = localStorage.getItem("token");
+      if (token) {
+        window.location.href = "/dashboard.html";
       }
+    });
 
-      form.addEventListener("submit", async (e) => {
-        e.preventDefault();
+    // =====================
+    // LOGIN HANDLER
+    // =====================
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
 
-        const email = document.getElementById("username").value.trim();
-        const password = document.getElementById("password").value.trim();
+      const email = document.getElementById("email").value.trim();
+      const password = document.getElementById("password").value.trim();
 
-        errorMsg.innerText = "";
+      errorMsg.innerText = "";
 
-        // 🔄 loading state
-        loginBtn.innerText = "Logging in...";
-        loginBtn.disabled = true;
+      loginBtn.innerText = "Logging in...";
+      loginBtn.disabled = true;
 
-        try {
-          const res = await fetch("http://localhost:5000/api/users/login", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json"
-            },
-            body: JSON.stringify({ email, password })
-          });
+      try {
+        const res = await fetch(`${API}/api/auth/login`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ email, password })
+        });
 
-          // ✅ SAFE JSON PARSE (fixes "<" error)
-          let data;
-          const contentType = res.headers.get("content-type");
+        const data = await res.json();
 
-          if (contentType && contentType.includes("application/json")) {
-            data = await res.json();
-          } else {
-            const text = await res.text();
-            throw new Error(text || "Invalid server response");
-          }
+        console.log("LOGIN RESPONSE:", data);
 
-          console.log("LOGIN RESPONSE:", JSON.stringify(data, null, 2));
-
-          if (!res.ok) {
-            errorMsg.innerText = data.message || "Login failed";
-            return;
-          }
-
-          if (!data.token) {
-            errorMsg.innerText = "Token missing from server";
-            return;
-          }
-
-          // ✅ store auth
-          localStorage.setItem("token", data.token);
-          localStorage.setItem("user", JSON.stringify(data.user || {}));
-
-          // ✅ redirect
-          window.location.href = "/dashboard.html";
-
-        } catch (err) {
-          console.log("LOGIN ERROR:", err);
-          errorMsg.innerText = "Server error / API not reachable";
-        } finally {
-          loginBtn.innerText = "Login";
-          loginBtn.disabled = false;
+        if (!res.ok) {
+          errorMsg.innerText = data.message || "Login failed";
+          return;
         }
-      });
 
+        if (!data.token) {
+          errorMsg.innerText = "Token missing from server";
+          return;
+        }
+
+        // =====================
+        // SAVE AUTH DATA
+        // =====================
+        localStorage.setItem("token", data.token);
+        localStorage.setItem("user", JSON.stringify(data.user));
+
+        // =====================
+        // REDIRECT
+        // =====================
+        window.location.href = "/dashboard.html";
+
+      } catch (err) {
+        console.error("LOGIN ERROR:", err);
+        errorMsg.innerText = "Server not reachable / API error";
+      } finally {
+        loginBtn.innerText = "Login";
+        loginBtn.disabled = false;
+      }
     });
   </script>
 

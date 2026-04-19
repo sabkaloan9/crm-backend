@@ -1,80 +1,33 @@
 const router = require("express").Router();
-const Loan = require("../models/Loan");
 
-// 🔐 MIDDLEWARE
 const auth = require("../middleware/auth");
 const role = require("../middleware/roleMiddleware");
 
-// =====================
-// GET LOANS (ADMIN + USER FILTER)
-// =====================
-router.get("/", auth, async (req, res) => {
-  try {
-    let loans;
-
-    // 🔥 ADMIN → ALL LOANS
-    if (req.user.role === "admin") {
-      loans = await Loan.find().populate("userId");
-    }
-
-    // 🔥 USER → ONLY THEIR LOANS
-    else {
-      loans = await Loan.find({ userId: req.user.id }).populate("userId");
-    }
-
-    res.json(loans);
-
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
+const {
+  applyLoan,
+  getLoans,
+  updateLoanStatus,
+  deleteLoan
+} = require("../controllers/loanController");
 
 // =====================
-// CREATE LOAN (USER + ADMIN)
+// GET LOANS
 // =====================
-router.post("/", auth, role(["admin", "user"]), async (req, res) => {
-  try {
-    const loan = await Loan.create({
-      ...req.body,
-      userId: req.user.id // 🔥 LINK TO LOGGED USER
-    });
-
-    res.json(loan);
-
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
+router.get("/", auth, getLoans);
 
 // =====================
-// UPDATE LOAN (ADMIN ONLY)
+// APPLY LOAN
 // =====================
-router.put("/:id", auth, role(["admin"]), async (req, res) => {
-  try {
-    const updated = await Loan.findByIdAndUpdate(
-      req.params.id,
-      req.body,
-      { new: true }
-    );
-
-    res.json(updated);
-
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
+router.post("/", auth, applyLoan);
 
 // =====================
-// DELETE LOAN (ADMIN ONLY)
+// UPDATE STATUS (ADMIN)
 // =====================
-router.delete("/:id", auth, role(["admin"]), async (req, res) => {
-  try {
-    await Loan.findByIdAndDelete(req.params.id);
-    res.json({ message: "Loan deleted" });
+router.put("/:id/status", auth, role(["admin"]), updateLoanStatus);
 
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
+// =====================
+// DELETE
+// =====================
+router.delete("/:id", auth, role(["admin"]), deleteLoan);
 
 module.exports = router;
