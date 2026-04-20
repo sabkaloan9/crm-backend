@@ -2,6 +2,7 @@ require("dotenv").config();
 const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
+const path = require("path");
 
 const http = require("http");
 const { Server } = require("socket.io");
@@ -15,18 +16,23 @@ const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
     origin: "*",
+    methods: ["GET", "POST", "PUT", "DELETE"],
   },
 });
 
-// attach io
+// attach io to requests
 app.use((req, res, next) => {
   req.io = io;
   next();
 });
 
-// socket connection log
+// socket connection
 io.on("connection", (socket) => {
   console.log("🔥 User connected:", socket.id);
+
+  socket.on("disconnect", () => {
+    console.log("❌ User disconnected:", socket.id);
+  });
 });
 
 // =====================
@@ -35,8 +41,15 @@ io.on("connection", (socket) => {
 app.use(cors());
 app.use(express.json());
 
-// ✅ SERVE FRONTEND (CRITICAL FIX)
-app.use(express.static("public"));
+// =====================
+// SERVE FRONTEND (FIXED)
+// =====================
+app.use(express.static(path.join(__dirname, "public")));
+
+// fallback route for frontend (SPA support)
+app.get("*", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "login.html"));
+});
 
 // =====================
 // ROUTES
@@ -47,10 +60,13 @@ app.use("/api/loans", require("./routes/loanRoutes"));
 app.use("/api/dashboard", require("./routes/dashboardRoutes"));
 
 // =====================
-// TEST ROUTE
+// HEALTH CHECK
 // =====================
-app.get("/", (req, res) => {
-  res.send("API running 🚀");
+app.get("/health", (req, res) => {
+  res.json({
+    status: "OK",
+    time: new Date(),
+  });
 });
 
 // =====================
