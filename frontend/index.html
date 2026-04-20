@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -51,7 +52,14 @@
       margin-top: 10px;
       font-size: 14px;
     }
+
+    .success {
+      color: #22c55e;
+      margin-top: 10px;
+      font-size: 14px;
+    }
   </style>
+
 </head>
 
 <body>
@@ -59,27 +67,30 @@
   <div class="box">
     <h2>CRM Login</h2>
 
-    <form id="loginForm">
-      <input id="email" type="email" placeholder="Email" required />
-      <input id="password" type="password" placeholder="Password" required />
-      <button type="submit" id="loginBtn">Login</button>
-    </form>
+```
+<form id="loginForm">
+  <input id="email" type="email" placeholder="Email" required />
+  <input id="password" type="password" placeholder="Password" required />
+  <button type="submit" id="loginBtn">Login</button>
+</form>
 
-    <div id="errorMsg" class="error"></div>
+<div id="msg"></div>
+```
+
   </div>
 
   <script>
     // =====================
-    // PRODUCTION API
+    // ✅ FINAL PRODUCTION API
     // =====================
-    const API = "https://crm-backend-9kb2.onrender.com";
+    const API = "https://crm-backend-sigma-lime.vercel.app";
 
     const form = document.getElementById("loginForm");
-    const errorMsg = document.getElementById("errorMsg");
+    const msg = document.getElementById("msg");
     const loginBtn = document.getElementById("loginBtn");
 
     // =====================
-    // AUTO LOGIN CHECK
+    // AUTO LOGIN
     // =====================
     document.addEventListener("DOMContentLoaded", () => {
       const token = localStorage.getItem("token");
@@ -97,13 +108,13 @@
       const email = document.getElementById("email").value.trim();
       const password = document.getElementById("password").value.trim();
 
-      errorMsg.innerText = "";
+      msg.innerHTML = "";
 
       loginBtn.innerText = "Logging in...";
       loginBtn.disabled = true;
 
       try {
-        const res = await fetch(`${API}/api/auth/login`, {
+        const res = await fetch(`${API}/api/users/login`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json"
@@ -111,39 +122,59 @@
           body: JSON.stringify({ email, password })
         });
 
-        const data = await res.json();
+        let data;
+
+        const contentType = res.headers.get("content-type");
+        if (contentType && contentType.includes("application/json")) {
+          data = await res.json();
+        } else {
+          const text = await res.text();
+          throw new Error(text || "Server error");
+        }
 
         console.log("LOGIN RESPONSE:", data);
 
         if (!res.ok) {
-          errorMsg.innerText = data.message || "Login failed";
+          msg.innerHTML = `<span class="error">${data.message || "Invalid credentials"}</span>`;
           return;
         }
 
         if (!data.token) {
-          errorMsg.innerText = "Token missing from server";
+          msg.innerHTML = `<span class="error">Token missing from server</span>`;
           return;
         }
 
         // =====================
-        // SAVE AUTH DATA
+        // SAVE AUTH
         // =====================
         localStorage.setItem("token", data.token);
         localStorage.setItem("user", JSON.stringify(data.user));
 
+        msg.innerHTML = `<span class="success">Login successful ✅</span>`;
+
         // =====================
         // REDIRECT
         // =====================
-        window.location.href = "/dashboard.html";
+        setTimeout(() => {
+          window.location.href = "/dashboard.html";
+        }, 800);
 
       } catch (err) {
         console.error("LOGIN ERROR:", err);
-        errorMsg.innerText = "Server not reachable / API error";
+        msg.innerHTML = `<span class="error">Server not reachable</span>`;
       } finally {
         loginBtn.innerText = "Login";
         loginBtn.disabled = false;
       }
     });
+
+    // =====================
+    // LOGOUT (GLOBAL)
+    // =====================
+    function logout() {
+      localStorage.clear();
+      window.location.href = "/index.html";
+    }
   </script>
 
 </body>

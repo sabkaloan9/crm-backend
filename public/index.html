@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>CRM Login</title>
+
+  <style>
+    body {
+      font-family: Arial;
+      display: flex;
+      height: 100vh;
+      align-items: center;
+      justify-content: center;
+      background: #0f172a;
+      color: white;
+    }
+
+    .box {
+      background: #1e293b;
+      padding: 30px;
+      border-radius: 10px;
+      width: 300px;
+    }
+
+    input {
+      width: 100%;
+      padding: 10px;
+      margin: 10px 0;
+      border-radius: 6px;
+      border: none;
+    }
+
+    button {
+      width: 100%;
+      padding: 10px;
+      background: #3b82f6;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    button:disabled {
+      background: #64748b;
+    }
+
+    .error {
+      color: #ef4444;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="box">
+    <h2>Login</h2>
+
+    <form id="loginForm">
+      <input id="username" placeholder="Email" required />
+      <input id="password" type="password" placeholder="Password" required />
+      <button type="submit" id="loginBtn">Login</button>
+    </form>
+
+    <div id="errorMsg" class="error"></div>
+  </div>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+
+      const form = document.getElementById("loginForm");
+      const errorMsg = document.getElementById("errorMsg");
+      const loginBtn = document.getElementById("loginBtn");
+
+      if (!form) {
+        console.error("loginForm not found");
+        return;
+      }
+
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+
+        const email = document.getElementById("username").value.trim();
+        const password = document.getElementById("password").value.trim();
+
+        errorMsg.innerText = "";
+
+        // 🔄 loading state
+        loginBtn.innerText = "Logging in...";
+        loginBtn.disabled = true;
+
+        try {
+          const res = await apiFetch("http://localhost:5000/api/users/login", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ email, password })
+          });
+
+          // ✅ SAFE JSON PARSE (fixes "<" error)
+          let data;
+          const contentType = res.headers.get("content-type");
+
+          if (contentType && contentType.includes("application/json")) {
+            data = await res.json();
+          } else {
+            const text = await res.text();
+            throw new Error(text || "Invalid server response");
+          }
+
+          console.log("LOGIN RESPONSE:", JSON.stringify(data, null, 2));
+
+          if (!res.ok) {
+            errorMsg.innerText = data.message || "Login failed";
+            return;
+          }
+
+          if (!data.token) {
+            errorMsg.innerText = "Token missing from server";
+            return;
+          }
+
+          // ✅ store auth
+          localStorage.setItem("token", data.token);
+          localStorage.setItem("user", JSON.stringify(data.user || {}));
+
+          // ✅ redirect
+          window.location.href = "/dashboard.html";
+
+        } catch (err) {
+          console.log("LOGIN ERROR:", err);
+          errorMsg.innerText = "Server error / API not reachable";
+        } finally {
+          loginBtn.innerText = "Login";
+          loginBtn.disabled = false;
+        }
+      });
+
+    });
+  </script>
+
+</body>
+</html>

@@ -1,28 +1,33 @@
+require("dotenv").config();
 const jwt = require("jsonwebtoken");
-const User = require("../models/User");
 
-module.exports = async (req, res, next) => {
+// =====================
+// AUTH MIDDLEWARE
+// =====================
+function auth(req, res, next) {
+  const token = req.headers.token;
+
+  console.log("🔐 TOKEN RECEIVED:", token);
+  console.log("🔐 VERIFY SECRET:", process.env.JWT_SECRET);
+
+  if (!token) {
+    console.log("❌ NO TOKEN");
+    return res.status(401).json("No token");
+  }
+
   try {
-    const header = req.header("Authorization");
+    const verified = jwt.verify(token, process.env.JWT_SECRET);
 
-    if (!header) {
-      return res.status(401).json({ message: "No token" });
-    }
+    console.log("✅ TOKEN VERIFIED:", verified);
 
-    const token = header.split(" ")[1];
-
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
-    const user = await User.findById(decoded.id).select("-password");
-
-    if (!user) {
-      return res.status(401).json({ message: "User not found" });
-    }
-
-    req.user = user;
+    req.user = verified; // { id, isAdmin }
 
     next();
+
   } catch (err) {
-    res.status(401).json({ message: "Invalid token" });
+    console.log("❌ TOKEN ERROR:", err.message);
+    return res.status(401).json("Invalid token");
   }
-};
+}
+
+module.exports = auth;

@@ -1,142 +1,77 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-<meta charset="UTF-8">
-<title>CRM Dashboard</title>
-
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
-
-<style>
-body { margin:0; font-family:Arial; background:#0b1220; color:white; }
-.app { display:flex; }
-
-.sidebar {
-  width:220px;
-  background:#0f172a;
-  padding:20px;
-  height:100vh;
-}
-.sidebar h2 { color:#38bdf8; }
-
-.sidebar button {
-  width:100%;
-  padding:10px;
-  margin:10px 0;
-  background:#1e293b;
-  border:none;
-  color:white;
-  border-radius:8px;
-  cursor:pointer;
-}
-
-.main { flex:1; padding:20px; }
-
-.cards {
-  display:grid;
-  grid-template-columns:repeat(5,1fr);
-  gap:15px;
-}
-.card {
-  background:#111827;
-  padding:20px;
-  border-radius:12px;
-}
-
-table {
-  width:100%;
-  margin-top:20px;
-  border-collapse:collapse;
-  background:#111827;
-}
-th, td {
-  padding:12px;
-  border-bottom:1px solid #1f2937;
-}
-
-.admin-only { display:inline-block; }
-
-input, select {
-  padding:8px;
-  border-radius:6px;
-  border:none;
-}
-</style>
+  <title>Dashboard</title>
 </head>
-
 <body>
 
-<div class="app">
+<h2>Dashboard</h2>
 
-  <!-- SIDEBAR -->
-  <div class="sidebar">
-    <h2>CRM SaaS</h2>
+<p id="welcome"></p>
 
-    <div>
-      👤 <span id="userName">User</span><br>
-      🔐 Role: <span id="userRole">-</span>
-    </div>
+<button id="adminBtn" onclick="goToUsers()">User Management</button>
+<button onclick="logout()">Logout</button>
 
-    <button onclick="logout()">Logout</button>
-  </div>
+<pre id="output"></pre>
 
-  <!-- MAIN -->
-  <div class="main">
+<script>
+const token = localStorage.getItem("token");
+const user = JSON.parse(localStorage.getItem("user"));
 
-    <h2>Dashboard</h2>
+// 🔐 check login
+if (!token) {
+  window.location.href = "login.html";
+}
 
-    <!-- CARDS -->
-    <div class="cards">
-      <div class="card">Total Loans: <span id="totalLoans">0</span></div>
-      <div class="card">Approved: <span id="approvedCount">0</span></div>
-      <div class="card">Pending: <span id="pendingCount">0</span></div>
-      <div class="card">Rejected: <span id="rejectedCount">0</span></div>
-      <div class="card">Users: <span id="totalUsers">0</span></div>
-    </div>
+// 👤 show user
+if (user) {
+  document.getElementById("welcome").innerText =
+    "Welcome " + user.name + (user.isAdmin ? " (Admin)" : "");
+}
 
-    <!-- CHART -->
-    <canvas id="chart"></canvas>
+// 🔒 hide admin button
+if (!user || !user.isAdmin) {
+  document.getElementById("adminBtn").style.display = "none";
+}
 
-    <!-- FILTERS -->
-    <div style="margin:15px 0; display:flex; gap:10px; flex-wrap:wrap;">
-      <input id="searchInput" placeholder="Search user..." />
-      <select id="statusFilter">
-        <option value="">All</option>
-        <option value="approved">Approved</option>
-        <option value="pending">Pending</option>
-        <option value="rejected">Rejected</option>
-      </select>
-      <button onclick="exportCSV()">📄 Export CSV</button>
-    </div>
+// load dashboard
+async function loadDashboard() {
+  const res = await fetch("https://crm-backend-9kb2.onrender.com/api/dashboard", {
+    headers: {
+      token: token
+    }
+  });
 
-    <!-- LOANS -->
-    <h3>Loans</h3>
+  if (res.status === 401) {
+    alert("Session expired");
+    logout();
+    return;
+  }
 
-    <button onclick="createLoan()">➕ Create Loan</button>
+  if (res.status === 403) {
+    document.getElementById("output").innerText = "Access restricted";
+    return;
+  }
 
-    <table>
-      <thead>
-        <tr>
-          <th>User</th>
-          <th>Amount</th>
-          <th>Status</th>
-          <th>Date</th>
-          <th class="admin-only">Action</th>
-        </tr>
-      </thead>
-      <tbody id="loanTable"></tbody>
-    </table>
+  const data = await res.json();
 
-    <!-- PAGINATION -->
-    <div style="margin-top:15px;">
-      <button onclick="prevPage()">⬅ Prev</button>
-      <span id="pageInfo"></span>
-      <button onclick="nextPage()">Next ➡</button>
-    </div>
+  document.getElementById("output").innerText =
+    JSON.stringify(data, null, 2);
+}
 
-  </div>
-</div>
+// nav
+function goToUsers() {
+  window.location.href = "admin-users.html";
+}
 
-<script src="script.js?v=5"></script>
+// logout
+function logout() {
+  localStorage.clear();
+  window.location.href = "login.html";
+}
+
+loadDashboard();
+</script>
+
 </body>
 </html>
