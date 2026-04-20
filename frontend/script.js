@@ -1,23 +1,37 @@
-const API = "https://crm-backend-9kb2.onrender.com";
+// =====================
+// CONFIG
+// =====================
+const API = "https://crm-backend-sigma-lime.vercel.app";
 console.log("🔥 FINAL SCRIPT LOADED");
 
+// =====================
+// AUTH
+// =====================
 const token = localStorage.getItem("token");
 const user = JSON.parse(localStorage.getItem("user") || "{}");
 
-if (!token) window.location.href = "/index.html";
+if (!token) {
+  window.location.href = "/index.html";
+}
 
+// =====================
 // STATE
+// =====================
 let currentPage = 1;
 let totalPages = 1;
 let currentLoans = [];
 
+// =====================
 // SAFE TEXT
+// =====================
 function setText(id, value) {
   const el = document.getElementById(id);
-  if (el) el.innerText = value;
+  if (el) el.innerText = value ?? 0;
 }
 
+// =====================
 // ROLE UI
+// =====================
 function applyRoleUI() {
   setText("userName", user?.name || "User");
   setText("userRole", user?.role || "user");
@@ -29,12 +43,37 @@ function applyRoleUI() {
   }
 }
 
+// =====================
+// 🔐 SAFE FETCH (IMPORTANT)
+// =====================
+async function safeFetch(url, options = {}) {
+  try {
+    const res = await fetch(url, options);
+
+    if (res.status === 401 || res.status === 403) {
+      alert("Session expired. Please login again.");
+      logout();
+      return null;
+    }
+
+    const data = await res.json();
+    return data;
+
+  } catch (err) {
+    console.error("API ERROR:", err);
+    return null;
+  }
+}
+
+// =====================
 // DASHBOARD
+// =====================
 async function loadDashboard() {
-  const res = await fetch(`${API}/api/dashboard`, {
+  const data = await safeFetch(`${API}/api/dashboard`, {
     headers: { Authorization: "Bearer " + token }
   });
-  const data = await res.json();
+
+  if (!data) return;
 
   setText("totalLoans", data.totalLoans);
   setText("approvedCount", data.approvedLoans);
@@ -45,16 +84,21 @@ async function loadDashboard() {
   updateChart(data);
 }
 
+// =====================
 // LOANS
+// =====================
 async function loadLoans() {
   const search = document.getElementById("searchInput")?.value || "";
   const status = document.getElementById("statusFilter")?.value || "";
 
-  const res = await fetch(`${API}/api/loans?page=${currentPage}&limit=5`, {
-    headers: { Authorization: "Bearer " + token }
-  });
+  const result = await safeFetch(
+    `${API}/api/loans?page=${currentPage}&limit=5`,
+    {
+      headers: { Authorization: "Bearer " + token }
+    }
+  );
 
-  const result = await res.json();
+  if (!result) return;
 
   currentLoans = result.data || [];
   totalPages = result.pages || 1;
@@ -76,7 +120,9 @@ async function loadLoans() {
   setText("pageInfo", `Page ${currentPage} / ${totalPages}`);
 }
 
+// =====================
 // RENDER
+// =====================
 function renderLoans(loans) {
   const table = document.getElementById("loanTable");
   if (!table) return;
@@ -99,9 +145,11 @@ function renderLoans(loans) {
   });
 }
 
+// =====================
 // CREATE
+// =====================
 async function createLoan() {
-  await fetch(`${API}/api/loans`, {
+  await safeFetch(`${API}/api/loans`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -113,11 +161,16 @@ async function createLoan() {
       tenure: 12
     })
   });
+
+  loadLoans();
+  loadDashboard();
 }
 
+// =====================
 // UPDATE
+// =====================
 async function updateStatus(id, status) {
-  await fetch(`${API}/api/loans/${id}`, {
+  await safeFetch(`${API}/api/loans/${id}`, {
     method: "PUT",
     headers: {
       "Content-Type": "application/json",
@@ -125,9 +178,14 @@ async function updateStatus(id, status) {
     },
     body: JSON.stringify({ status })
   });
+
+  loadLoans();
+  loadDashboard();
 }
 
+// =====================
 // PAGINATION
+// =====================
 function nextPage() {
   if (currentPage < totalPages) {
     currentPage++;
@@ -142,7 +200,9 @@ function prevPage() {
   }
 }
 
-// SEARCH + FILTER EVENTS
+// =====================
+// EVENTS
+// =====================
 document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("searchInput")?.addEventListener("input", () => {
     currentPage = 1;
@@ -155,7 +215,9 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 });
 
+// =====================
 // EXPORT CSV
+// =====================
 function exportCSV() {
   if (!currentLoans.length) return alert("No data");
 
@@ -174,7 +236,9 @@ function exportCSV() {
   a.click();
 }
 
+// =====================
 // CHART
+// =====================
 let chart;
 function updateChart(data) {
   const ctx = document.getElementById("chart");
@@ -188,34 +252,41 @@ function updateChart(data) {
       labels: ["Approved", "Pending", "Rejected"],
       datasets: [{
         data: [
-          data.approvedLoans,
-          data.pendingLoans,
-          data.rejectedLoans
+          data.approvedLoans || 0,
+          data.pendingLoans || 0,
+          data.rejectedLoans || 0
         ]
       }]
     }
   });
 }
 
+// =====================
 // SOCKET
+// =====================
 try {
   const socket = io(API);
 
   socket.on("loanUpdated", () => {
+    console.log("🔥 Real-time update");
     loadDashboard();
     loadLoans();
   });
 } catch (err) {
-  console.log("No socket");
+  console.log("Socket not connected");
 }
 
+// =====================
 // LOGOUT
+// =====================
 function logout() {
   localStorage.clear();
   window.location.href = "/index.html";
 }
 
+// =====================
 // INIT
+// =====================
 window.onload = () => {
   applyRoleUI();
   loadDashboard();

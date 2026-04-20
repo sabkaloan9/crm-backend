@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>User Management</title>
+</head>
+<body>
+
+<h2>👨‍💼 User Management</h2>
+
+<button onclick="goBack()">⬅ Back</button>
+<button onclick="logout()">Logout</button>
+
+<input type="text" id="search" placeholder="Search user..." />
+
+<table border="1" width="100%">
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Email</th>
+      <th>Role</th>
+      <th>Action</th>
+    </tr>
+  </thead>
+  <tbody id="userTable"></tbody>
+</table>
+
+<script>
+// 🔐 CHECK LOGIN
+const token = localStorage.getItem("token");
+const user = JSON.parse(localStorage.getItem("user"));
+
+if (!token) {
+  window.location.href = "login.html";
+}
+
+// 🔒 BLOCK NON-ADMIN ACCESS (IMPORTANT)
+if (!user || !user.isAdmin) {
+  alert("Access denied (Admin only)");
+  window.location.href = "dashboard.html";
+}
+
+// LOAD USERS
+async function loadUsers() {
+  const res = await fetch("https://crm-backend-9kb2.onrender.com/api/users", {
+    headers: {
+      token: token,
+    },
+  });
+
+  if (res.status === 403) {
+    alert("Backend denied access");
+    return;
+  }
+
+  const users = await res.json();
+
+  const table = document.getElementById("userTable");
+  table.innerHTML = "";
+
+  users.forEach(u => {
+    table.innerHTML += `
+      <tr>
+        <td>${u.name}</td>
+        <td>${u.email}</td>
+        <td>${u.isAdmin ? "Admin" : "User"}</td>
+        <td>
+          ${
+            !u.isAdmin
+              ? `<button onclick="makeAdmin('${u._id}')">Make Admin</button>`
+              : "✔"
+          }
+        </td>
+      </tr>
+    `;
+  });
+}
+
+// MAKE ADMIN
+async function makeAdmin(id) {
+  if (!confirm("Make this user admin?")) return;
+
+  await fetch(`https://crm-backend-9kb2.onrender.com/api/users/make-admin/${id}`, {
+    method: "PUT",
+    headers: {
+      token: token,
+    },
+  });
+
+  loadUsers();
+}
+
+// SEARCH
+document.getElementById("search").addEventListener("input", function () {
+  const value = this.value.toLowerCase();
+  const rows = document.querySelectorAll("tbody tr");
+
+  rows.forEach(row => {
+    row.style.display = row.innerText.toLowerCase().includes(value)
+      ? ""
+      : "none";
+  });
+});
+
+// NAVIGATION
+function goBack() {
+  window.location.href = "dashboard.html";
+}
+
+// LOGOUT
+function logout() {
+  localStorage.clear();
+  window.location.href = "login.html";
+}
+
+// INIT
+loadUsers();
+</script>
+
+</body>
+</html>

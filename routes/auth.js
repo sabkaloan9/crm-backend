@@ -1,101 +1,79 @@
+require("dotenv").config();
 const router = require("express").Router();
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
 
 // =====================
-// REGISTER (SAAS SAFE)
+// REGISTER
 // =====================
 router.post("/register", async (req, res) => {
   try {
-    let { name, email, password } = req.body;
+    const { name, email, password } = req.body;
 
-    // normalize input
-    name = name?.trim();
-    email = email?.toLowerCase().trim();
-
-    if (!name || !email || !password) {
-      return res.status(400).json({ message: "All fields required" });
-    }
-
-    // check duplicate user
+    // check if user exists
     const existingUser = await User.findOne({ email });
-
     if (existingUser) {
-      return res.status(409).json({ message: "User already exists" });
+      return res.status(400).json("User already exists");
     }
 
     // hash password
     const hashed = await bcrypt.hash(password, 10);
 
-    const user = await User.create({
+    // create user
+    const user = new User({
       name,
       email,
       password: hashed,
-      role: "user"
+      isAdmin: false, // default
     });
 
-    return res.status(201).json({
-      message: "User registered successfully",
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role
-      }
-    });
+    await user.save();
 
+    res.json("User registered successfully");
   } catch (err) {
-    return res.status(500).json({ message: "Server error" });
+    res.status(500).json(err);
   }
 });
 
 // =====================
-// LOGIN (SAAS SAFE)
+// LOGIN (FIXED ✅)
 // =====================
 router.post("/login", async (req, res) => {
   try {
-    let { email, password } = req.body;
+    const { email, password } = req.body;
 
-    email = email?.toLowerCase().trim();
-
-    if (!email || !password) {
-      return res.status(400).json({ message: "All fields required" });
-    }
-
+    // 1. find user
     const user = await User.findOne({ email });
+    if (!user) return res.status(400).json("User not found");
 
-    if (!user) {
-      return res.status(400).json({ message: "Invalid credentials" });
-    }
+    // 2. check password
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) return res.status(400).json("Wrong password");
 
-    const valid = await bcrypt.compare(password, user.password);
-
-    if (!valid) {
-      return res.status(400).json({ message: "Invalid credentials" });
-    }
-
+    // 3. CREATE JWT TOKEN ✅ (IMPORTANT)
     const token = jwt.sign(
       {
         id: user._id,
-        role: user.role
+        isAdmin: user.isAdmin, // ⭐ THIS FIXES YOUR ISSUE
       },
       process.env.JWT_SECRET,
-      { expiresIn: "1d" }
+      { expiresIn: "7d" }
     );
 
-    return res.json({
+    // 4. SEND RESPONSE
+    res.json({
       token,
       user: {
         id: user._id,
         name: user.name,
         email: user.email,
-        role: user.role
-      }
+        isAdmin: user.isAdmin,
+      },
     });
 
   } catch (err) {
-    return res.status(500).json({ message: "Server error" });
+    res.status(500).json(err);
   }
 });
 
