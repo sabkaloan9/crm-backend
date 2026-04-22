@@ -2,7 +2,6 @@ require("dotenv").config();
 const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
-const path = require("path");
 
 const app = express();
 
@@ -13,18 +12,25 @@ app.use(cors());
 app.use(express.json());
 
 // =====================
-// API ROUTES (FIRST)
+// 🔥 DEPLOY CHECK (CRITICAL)
 // =====================
-app.use("/api/auth", require("./routes/auth"));
-app.use("/api/users", require("./routes/userRoutes"));
-app.use("/api/loans", require("./routes/loanRoutes"));
-app.use("/api/dashboard", require("./routes/dashboardRoutes"));
+app.get("/check123", (req, res) => {
+  res.send("DEPLOY CHECK SUCCESS ✅");
+});
 
 // =====================
-// ROOT TEST
+// LOAD ROUTES
+// =====================
+console.log("🔥 Loading user routes...");
+const userRoutes = require("./routes/userRoutes");
+
+app.use("/api/users", userRoutes);
+
+// =====================
+// ROOT
 // =====================
 app.get("/", (req, res) => {
-  res.json({ message: "CRM API working ✅" });
+  res.send("API WORKING ✅");
 });
 
 // =====================
@@ -35,16 +41,6 @@ app.get("/health", (req, res) => {
 });
 
 // =====================
-// SERVE FRONTEND (OPTIONAL)
-// =====================
-app.use(express.static(path.join(__dirname, "public")));
-
-// ⚠️ MUST BE LAST (VERY IMPORTANT)
-app.get("*", (req, res) => {
-  res.sendFile(path.join(__dirname, "public", "login.html"));
-});
-
-// =====================
 // DATABASE
 // =====================
 mongoose.connect(process.env.MONGO_URI)
@@ -52,7 +48,7 @@ mongoose.connect(process.env.MONGO_URI)
   .catch(err => console.log("DB ERROR:", err));
 
 // =====================
-// START
+// START SERVER
 // =====================
 const PORT = process.env.PORT || 5000;
 
