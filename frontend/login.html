@@ -1,42 +1,32 @@
 <!DOCTYPE html>
 <html>
-<head>
-  <title>Login</title>
-</head>
 <body>
 
 <h2>Login</h2>
 
-<input type="email" id="email" placeholder="Email"><br><br>
-<input type="password" id="password" placeholder="Password"><br><br>
+<input id="email" placeholder="Email"><br><br>
+<input id="password" type="password" placeholder="Password"><br><br>
 
 <button onclick="login()">Login</button>
 
 <script>
-async function login() {
-  const email = document.getElementById("email").value;
-  const password = document.getElementById("password").value;
+const API = "https://crm-backend-9kb2.onrender.com";
 
-  const res = await fetch("https://crm-backend-9kb2.onrender.com/api/auth/login", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({ email, password })
+async function login() {
+  const res = await fetch(API + "/api/auth/login", {
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({
+      email: email.value,
+      password: password.value
+    })
   });
 
   const data = await res.json();
 
-  if (res.status !== 200) {
-    alert(data);
-    return;
-  }
-
-  // ✅ save token + user
   localStorage.setItem("token", data.token);
   localStorage.setItem("user", JSON.stringify(data.user));
 
-  // redirect
   window.location.href = "dashboard.html";
 }
 </script>

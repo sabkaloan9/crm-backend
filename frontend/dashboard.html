@@ -2,193 +2,46 @@
 <html>
 <head>
   <title>CRM</title>
-
   <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
-
-  <style>
-    body { margin:0; font-family: Arial; display:flex; }
-
-    .sidebar {
-      width:200px;
-      background:#2c3e50;
-      color:white;
-      height:100vh;
-      padding:20px;
-    }
-
-    .main {
-      flex:1;
-      padding:20px;
-      background:#f4f6f9;
-    }
-
-    input { padding:10px; width:300px; margin-bottom:20px; }
-
-    table { width:100%; background:white; border-collapse:collapse; }
-
-    th, td { padding:10px; border:1px solid #ddd; }
-
-    th { background:#34495e; color:white; }
-
-    button { padding:5px; margin-right:5px; cursor:pointer; }
-
-    .edit { background:orange; color:white; }
-    .delete { background:red; color:white; }
-
-    .modal {
-      display:none;
-      position:fixed;
-      top:0; left:0;
-      width:100%; height:100%;
-      background:rgba(0,0,0,0.5);
-      justify-content:center;
-      align-items:center;
-    }
-
-    .modal-box {
-      background:white;
-      padding:20px;
-      width:300px;
-    }
-  </style>
 </head>
 <body>
 
-<div class="sidebar">
-  <h2>CRM</h2>
-  <div>Dashboard</div>
-  <div>Customers</div>
-</div>
+<h2>Dashboard</h2>
 
-<div class="main">
+<input id="search" placeholder="Search...">
+<pre id="data"></pre>
 
-  <h2>Customer List</h2>
-
-  <input id="search" placeholder="Search...">
-
-  <table>
-    <thead>
-      <tr>
-        <th>Name</th>
-        <th>Mobile</th>
-        <th>Email</th>
-        <th>PAN</th>
-        <th>Loan</th>
-        <th>Action</th>
-      </tr>
-    </thead>
-    <tbody id="tableBody"></tbody>
-  </table>
-
-</div>
-
-<div class="modal" id="modal">
-  <div class="modal-box">
-    <h3>Edit</h3>
-    <input id="name">
-    <input id="mobile">
-    <input id="email">
-    <input id="pan">
-    <input id="loanNo">
-    <button onclick="save()">Save</button>
-    <button onclick="closeModal()">Cancel</button>
-  </div>
-</div>
+<div id="notify" style="position:fixed;top:10px;right:10px;background:black;color:white;padding:10px;display:none;"></div>
 
 <script>
 const API = "https://crm-backend-9kb2.onrender.com";
+const token = localStorage.getItem("token");
+
+if (!token) window.location.href = "login.html";
+
 const socket = io(API);
 
-let currentId = null;
-let timeout = null;
+// SEARCH
+search.oninput = async () => {
+  const res = await fetch(API + "/api/users/search?q=" + search.value, {
+    headers: { token }
+  });
 
-// LIVE SEARCH
-document.getElementById("search").addEventListener("input", function () {
-  clearTimeout(timeout);
-  timeout = setTimeout(() => search(this.value), 400);
-});
-
-async function search(q) {
-  if (!q) return;
-
-  const res = await fetch(`${API}/api/users/search?q=${q}`);
   const data = await res.json();
-  render(data);
-}
+  document.getElementById("data").innerText = JSON.stringify(data, null, 2);
+};
 
-// RENDER
-function render(users) {
-  const tbody = document.getElementById("tableBody");
-  tbody.innerHTML = "";
+// REALTIME
+socket.on("userUpdated", () => search.oninput());
+socket.on("userDeleted", () => search.oninput());
 
-  users.forEach(u => {
-    tbody.innerHTML += `
-      <tr>
-        <td>${u.name||""}</td>
-        <td>${u.mobile||""}</td>
-        <td>${u.email||""}</td>
-        <td>${u.pan||""}</td>
-        <td>${u.loanNo||""}</td>
-        <td>
-          <button class="edit" onclick='edit(${JSON.stringify(u)})'>Edit</button>
-          <button class="delete" onclick='del("${u._id}")'>Delete</button>
-        </td>
-      </tr>
-    `;
-  });
-}
+// NOTIFY
+socket.on("notify", (n) => {
+  notify.innerText = n.msg;
+  notify.style.display = "block";
+  notify.style.background = n.type === "error" ? "red" : "green";
 
-// DELETE
-async function del(id) {
-  await fetch(`${API}/api/users/${id}`, { method:"DELETE" });
-}
-
-// EDIT
-function edit(u) {
-  currentId = u._id;
-  modal.style.display = "flex";
-
-  name.value = u.name||"";
-  mobile.value = u.mobile||"";
-  email.value = u.email||"";
-  pan.value = u.pan||"";
-  loanNo.value = u.loanNo||"";
-}
-
-// SAVE
-async function save() {
-  await fetch(`${API}/api/users/${currentId}`, {
-    method:"PUT",
-    headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({
-      name:name.value,
-      mobile:mobile.value,
-      email:email.value,
-      pan:pan.value,
-      loanNo:loanNo.value
-    })
-  });
-
-  closeModal();
-}
-
-// CLOSE
-function closeModal() {
-  modal.style.display = "none";
-}
-
-// =====================
-// 🔥 REALTIME
-// =====================
-
-socket.on("userUpdated", () => {
-  const q = search.value;
-  if (q) search(q);
-});
-
-socket.on("userDeleted", () => {
-  const q = search.value;
-  if (q) search(q);
+  setTimeout(() => notify.style.display = "none", 2000);
 });
 </script>
 

@@ -1,63 +1,46 @@
 const router = require("express").Router();
 const User = require("../models/User");
+const auth = require("../middleware/auth");
 
-// =====================
-// SEARCH USERS
-// =====================
-router.get("/search", async (req, res) => {
-  try {
-    const q = req.query.q;
+// SEARCH
+router.get("/search", auth, async (req, res) => {
+  const q = req.query.q;
 
-    const users = await User.find({
-      $or: [
-        { name: { $regex: q, $options: "i" } },
-        { email: { $regex: q, $options: "i" } },
-        { mobile: { $regex: q, $options: "i" } },
-        { pan: { $regex: q, $options: "i" } },
-        { loanNo: { $regex: q, $options: "i" } },
-      ],
-    });
+  const users = await User.find({
+    $or: [
+      { name: { $regex: q, $options: "i" } },
+      { email: { $regex: q, $options: "i" } },
+      { mobile: { $regex: q, $options: "i" } },
+      { pan: { $regex: q, $options: "i" } },
+      { loanNo: { $regex: q, $options: "i" } },
+    ],
+  });
 
-    res.json(users);
-  } catch (err) {
-    res.status(500).json(err);
-  }
+  res.json(users);
 });
 
-// =====================
-// DELETE USER
-// =====================
-router.delete("/:id", async (req, res) => {
-  try {
-    await User.findByIdAndDelete(req.params.id);
+// DELETE
+router.delete("/:id", auth, async (req, res) => {
+  await User.findByIdAndDelete(req.params.id);
 
-    // 🔥 REALTIME
-    req.io.emit("userDeleted", req.params.id);
+  req.io.emit("notify", { msg: "User deleted", type: "error" });
+  req.io.emit("userDeleted");
 
-    res.json("User deleted");
-  } catch (err) {
-    res.status(500).json(err);
-  }
+  res.json("Deleted");
 });
 
-// =====================
-// UPDATE USER
-// =====================
-router.put("/:id", async (req, res) => {
-  try {
-    const updated = await User.findByIdAndUpdate(
-      req.params.id,
-      req.body,
-      { new: true }
-    );
+// UPDATE
+router.put("/:id", auth, async (req, res) => {
+  const updated = await User.findByIdAndUpdate(
+    req.params.id,
+    req.body,
+    { new: true }
+  );
 
-    // 🔥 REALTIME
-    req.io.emit("userUpdated", updated);
+  req.io.emit("notify", { msg: "User updated", type: "success" });
+  req.io.emit("userUpdated");
 
-    res.json(updated);
-  } catch (err) {
-    res.status(500).json(err);
-  }
+  res.json(updated);
 });
 
 module.exports = router;
