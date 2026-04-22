@@ -1,76 +1,234 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Dashboard</title>
+  <meta charset="UTF-8" />
+  <title>CRM Dashboard</title>
+
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      display: flex;
+      background: #f4f6f9;
+    }
+
+    /* SIDEBAR */
+    .sidebar {
+      width: 240px;
+      background: #111827;
+      color: white;
+      height: 100vh;
+      padding: 20px;
+    }
+
+    .sidebar h2 {
+      color: #22c55e;
+      font-size: 18px;
+      margin-bottom: 20px;
+    }
+
+    .menu a {
+      display: block;
+      color: #cbd5e1;
+      padding: 10px;
+      text-decoration: none;
+      margin-bottom: 5px;
+      border-radius: 6px;
+    }
+
+    .menu a:hover {
+      background: #1f2937;
+    }
+
+    /* MAIN */
+    .main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* TOPBAR */
+    .topbar {
+      background: white;
+      padding: 15px 20px;
+      display: flex;
+      justify-content: space-between;
+      border-bottom: 1px solid #ddd;
+    }
+
+    .user {
+      font-weight: bold;
+    }
+
+    /* CONTENT */
+    .content {
+      padding: 20px;
+    }
+
+    /* SEARCH BOX */
+    .search-box {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+
+    .search-box input {
+      flex: 1;
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+    }
+
+    .search-box button {
+      padding: 10px 15px;
+      background: #22c55e;
+      border: none;
+      color: white;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    /* TABLE */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: white;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    th, td {
+      padding: 12px;
+      border-bottom: 1px solid #eee;
+      text-align: left;
+      font-size: 14px;
+    }
+
+    th {
+      background: #f1f5f9;
+    }
+
+    .badge {
+      padding: 4px 8px;
+      border-radius: 6px;
+      background: #e2e8f0;
+      font-size: 12px;
+    }
+  </style>
 </head>
+
 <body>
 
-<h2>Dashboard</h2>
+<!-- SIDEBAR -->
+<div class="sidebar">
+  <h2>💼 CRM PANEL</h2>
 
-<p id="welcome"></p>
+  <div class="menu">
+    <a href="#">📊 Dashboard</a>
+    <a href="#">🔎 Search Customer</a>
+    <a href="#">👤 Customer List</a>
+    <a href="#">🚗 Auto Details</a>
+    <a href="#">💰 Collection</a>
+    <a href="#">👨‍💼 Collection Manager</a>
+    <a href="#">📈 Reports</a>
+  </div>
+</div>
 
-<button id="adminBtn" onclick="goToUsers()">User Management</button>
-<button onclick="logout()">Logout</button>
+<!-- MAIN -->
+<div class="main">
 
-<pre id="output"></pre>
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <div>CRM Dashboard</div>
+    <div class="user">
+      Puneet | puneet@sabkaloan.com
+      <button onclick="logout()">Logout</button>
+    </div>
+  </div>
+
+  <!-- CONTENT -->
+  <div class="content">
+
+    <h3>🔎 Search Customer</h3>
+
+    <div class="search-box">
+      <input id="searchInput" placeholder="Lead ID / Mobile / Email / PAN / Loan No" />
+      <button onclick="searchCustomer()">Search</button>
+    </div>
+
+    <!-- RESULTS -->
+    <table>
+      <thead>
+        <tr>
+          <th>Lead ID</th>
+          <th>Name</th>
+          <th>Mobile</th>
+          <th>Email</th>
+          <th>PAN</th>
+          <th>Loan No</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+
+      <tbody id="results">
+        <tr>
+          <td colspan="7" style="text-align:center;">No data yet</td>
+        </tr>
+      </tbody>
+    </table>
+
+  </div>
+</div>
 
 <script>
-const token = localStorage.getItem("token");
-const user = JSON.parse(localStorage.getItem("user"));
+const API = "https://crm-backend-9kb2.onrender.com";
 
-// 🔐 check login
+// 🔐 CHECK LOGIN
+const token = localStorage.getItem("token");
 if (!token) {
   window.location.href = "login.html";
 }
 
-// 👤 show user
-if (user) {
-  document.getElementById("welcome").innerText =
-    "Welcome " + user.name + (user.isAdmin ? " (Admin)" : "");
-}
+// 🔎 SEARCH FUNCTION
+async function searchCustomer() {
+  const q = document.getElementById("searchInput").value;
 
-// 🔒 hide admin button
-if (!user || !user.isAdmin) {
-  document.getElementById("adminBtn").style.display = "none";
-}
-
-// load dashboard
-async function loadDashboard() {
-  const res = await fetch("https://crm-backend-9kb2.onrender.com/api/dashboard", {
+  const res = await fetch(`${API}/api/users/search?q=${q}`, {
     headers: {
       token: token
     }
   });
 
-  if (res.status === 401) {
-    alert("Session expired");
-    logout();
-    return;
-  }
-
-  if (res.status === 403) {
-    document.getElementById("output").innerText = "Access restricted";
-    return;
-  }
-
   const data = await res.json();
 
-  document.getElementById("output").innerText =
-    JSON.stringify(data, null, 2);
+  const table = document.getElementById("results");
+  table.innerHTML = "";
+
+  if (!data.length) {
+    table.innerHTML = `<tr><td colspan="7">No results found</td></tr>`;
+    return;
+  }
+
+  data.forEach(user => {
+    table.innerHTML += `
+      <tr>
+        <td>${user.leadId || "-"}</td>
+        <td>${user.name || "-"}</td>
+        <td>${user.mobile || "-"}</td>
+        <td>${user.email || "-"}</td>
+        <td>${user.pan || "-"}</td>
+        <td>${user.loanNo || "-"}</td>
+        <td><span class="badge">Active</span></td>
+      </tr>
+    `;
+  });
 }
 
-// nav
-function goToUsers() {
-  window.location.href = "admin-users.html";
-}
-
-// logout
+// 🚪 LOGOUT
 function logout() {
   localStorage.clear();
   window.location.href = "login.html";
 }
-
-loadDashboard();
 </script>
 
 </body>
