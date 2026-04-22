@@ -1,88 +1,95 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>CRM Dashboard</title>
+  <title>CRM</title>
   <style>
-    body {
-      font-family: Arial;
-      margin: 0;
-      background: #f4f6f9;
-    }
+    body { margin:0; font-family: Arial; display:flex; }
 
-    .header {
+    /* SIDEBAR */
+    .sidebar {
+      width: 200px;
       background: #2c3e50;
       color: white;
-      padding: 15px;
-      font-size: 20px;
-    }
-
-    .container {
+      height: 100vh;
       padding: 20px;
     }
 
-    input {
-      padding: 10px;
-      width: 350px;
-      font-size: 16px;
-      margin-bottom: 20px;
+    .sidebar h2 { margin-bottom: 20px; }
+    .sidebar div { margin: 10px 0; cursor:pointer; }
+
+    /* MAIN */
+    .main {
+      flex:1;
+      padding:20px;
+      background:#f4f6f9;
     }
+
+    input { padding:10px; width:300px; margin-bottom:20px; }
 
     table {
-      width: 100%;
+      width:100%;
+      background:white;
       border-collapse: collapse;
-      background: white;
     }
 
-    th, td {
-      padding: 10px;
-      border: 1px solid #ddd;
+    th, td { padding:10px; border:1px solid #ddd; }
+
+    th { background:#34495e; color:white; }
+
+    button { padding:5px 10px; cursor:pointer; margin-right:5px; }
+
+    .edit { background:orange; color:white; }
+    .delete { background:red; color:white; }
+
+    /* MODAL */
+    .modal {
+      display:none;
+      position:fixed;
+      top:0; left:0;
+      width:100%; height:100%;
+      background:rgba(0,0,0,0.5);
+      justify-content:center;
+      align-items:center;
     }
 
-    th {
-      background: #34495e;
-      color: white;
+    .modal-box {
+      background:white;
+      padding:20px;
+      width:300px;
     }
 
-    tr:hover {
-      background: #f1f1f1;
+    .modal input {
+      width:100%;
+      margin:5px 0;
     }
-
-    button {
-      padding: 5px 10px;
-      margin-right: 5px;
-      cursor: pointer;
-    }
-
-    .view { background: #3498db; color: white; }
-    .delete { background: #e74c3c; color: white; }
   </style>
 </head>
 <body>
 
-<div class="header">
-  CRM Dashboard
+<!-- SIDEBAR -->
+<div class="sidebar">
+  <h2>CRM</h2>
+  <div>Dashboard</div>
+  <div>Customers</div>
+  <div>Reports</div>
 </div>
 
-<div class="container">
+<!-- MAIN -->
+<div class="main">
 
-  <!-- 🔍 LIVE SEARCH -->
-  <input 
-    type="text" 
-    id="search" 
-    placeholder="Search Lead ID / Mobile / Email / PAN / Loan No"
-  />
+  <h2>Customer List</h2>
 
-  <!-- 📊 TABLE -->
+  <input id="search" placeholder="Search...">
+
   <table>
     <thead>
       <tr>
         <th>Name</th>
-        <th>Lead ID</th>
         <th>Mobile</th>
         <th>Email</th>
         <th>PAN</th>
-        <th>Loan No</th>
-        <th>Actions</th>
+        <th>Loan</th>
+        <th>Action</th>
       </tr>
     </thead>
     <tbody id="tableBody"></tbody>
@@ -90,56 +97,54 @@
 
 </div>
 
+<!-- MODAL -->
+<div class="modal" id="modal">
+  <div class="modal-box">
+    <h3>Edit User</h3>
+    <input id="name">
+    <input id="mobile">
+    <input id="email">
+    <input id="pan">
+    <input id="loanNo">
+    <button onclick="saveUser()">Save</button>
+    <button onclick="closeModal()">Cancel</button>
+  </div>
+</div>
+
 <script>
 const API = "https://crm-backend-9kb2.onrender.com";
+let currentId = null;
 let timeout = null;
 
-// 🔥 LIVE SEARCH (AUTO)
+// LIVE SEARCH
 document.getElementById("search").addEventListener("input", function () {
   clearTimeout(timeout);
-
-  timeout = setTimeout(() => {
-    searchCustomer(this.value);
-  }, 500); // delay for typing
+  timeout = setTimeout(() => search(this.value), 400);
 });
 
-// 🔍 API CALL
-async function searchCustomer(q) {
-  if (!q) {
-    document.getElementById("tableBody").innerHTML = "";
-    return;
-  }
+async function search(q) {
+  if (!q) return;
 
-  try {
-    const res = await fetch(`${API}/api/users/search?q=${q}`);
-    const data = await res.json();
-    renderTable(data);
-  } catch (err) {
-    console.error(err);
-  }
+  const res = await fetch(`${API}/api/users/search?q=${q}`);
+  const data = await res.json();
+  render(data);
 }
 
-// 📊 RENDER TABLE
-function renderTable(users) {
+// RENDER
+function render(users) {
   const tbody = document.getElementById("tableBody");
   tbody.innerHTML = "";
-
-  if (!users.length) {
-    tbody.innerHTML = "<tr><td colspan='7'>No data found</td></tr>";
-    return;
-  }
 
   users.forEach(u => {
     tbody.innerHTML += `
       <tr>
-        <td>${u.name || ""}</td>
-        <td>${u.leadId || ""}</td>
-        <td>${u.mobile || ""}</td>
-        <td>${u.email || ""}</td>
-        <td>${u.pan || ""}</td>
-        <td>${u.loanNo || ""}</td>
+        <td>${u.name||""}</td>
+        <td>${u.mobile||""}</td>
+        <td>${u.email||""}</td>
+        <td>${u.pan||""}</td>
+        <td>${u.loanNo||""}</td>
         <td>
-          <button class="view" onclick='viewUser(${JSON.stringify(u)})'>View</button>
+          <button class="edit" onclick='openEdit(${JSON.stringify(u)})'>Edit</button>
           <button class="delete" onclick='deleteUser("${u._id}")'>Delete</button>
         </td>
       </tr>
@@ -147,20 +152,47 @@ function renderTable(users) {
   });
 }
 
-// 👁 VIEW USER
-function viewUser(user) {
-  alert(
-    "Name: " + user.name + "\n" +
-    "Mobile: " + user.mobile + "\n" +
-    "Email: " + user.email + "\n" +
-    "PAN: " + user.pan + "\n" +
-    "Loan: " + user.loanNo
-  );
+// DELETE
+async function deleteUser(id) {
+  if (!confirm("Delete user?")) return;
+
+  await fetch(`${API}/api/users/${id}`, { method: "DELETE" });
+  alert("Deleted");
 }
 
-// ❌ DELETE USER (frontend only for now)
-function deleteUser(id) {
-  alert("Delete API next step 🔥\nUser ID: " + id);
+// OPEN EDIT
+function openEdit(u) {
+  currentId = u._id;
+  document.getElementById("modal").style.display = "flex";
+
+  name.value = u.name || "";
+  mobile.value = u.mobile || "";
+  email.value = u.email || "";
+  pan.value = u.pan || "";
+  loanNo.value = u.loanNo || "";
+}
+
+// CLOSE MODAL
+function closeModal() {
+  document.getElementById("modal").style.display = "none";
+}
+
+// SAVE
+async function saveUser() {
+  await fetch(`${API}/api/users/${currentId}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      name: name.value,
+      mobile: mobile.value,
+      email: email.value,
+      pan: pan.value,
+      loanNo: loanNo.value
+    })
+  });
+
+  alert("Updated");
+  closeModal();
 }
 </script>
 
