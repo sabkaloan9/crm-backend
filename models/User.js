@@ -1,17 +1,16 @@
 const mongoose = require("mongoose");
 
-const UserSchema = new mongoose.Schema(
-  {
-    name: String,
-    email: String,
-    password: String,
+const UserSchema = new mongoose.Schema({
+  name: String,
+  email: String,
+  password: String,
 
-    isAdmin: {
-      type: Boolean,
-      default: false,
-    },
-  },
-  { timestamps: true }
-);
+  // CRM FIELDS
+  leadId: String,
+  mobile: String,
+  pan: String,
+  loanNo: String,
+
+}, { timestamps: true });
 
 module.exports = mongoose.model("User", UserSchema);

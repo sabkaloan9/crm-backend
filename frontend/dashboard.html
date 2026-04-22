@@ -1,233 +1,166 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8" />
   <title>CRM Dashboard</title>
-
   <style>
     body {
+      font-family: Arial;
       margin: 0;
-      font-family: Arial, sans-serif;
-      display: flex;
       background: #f4f6f9;
     }
 
-    /* SIDEBAR */
-    .sidebar {
-      width: 240px;
-      background: #111827;
+    .header {
+      background: #2c3e50;
       color: white;
-      height: 100vh;
+      padding: 15px;
+      font-size: 20px;
+    }
+
+    .container {
       padding: 20px;
     }
 
-    .sidebar h2 {
-      color: #22c55e;
-      font-size: 18px;
+    input {
+      padding: 10px;
+      width: 350px;
+      font-size: 16px;
       margin-bottom: 20px;
     }
 
-    .menu a {
-      display: block;
-      color: #cbd5e1;
-      padding: 10px;
-      text-decoration: none;
-      margin-bottom: 5px;
-      border-radius: 6px;
-    }
-
-    .menu a:hover {
-      background: #1f2937;
-    }
-
-    /* MAIN */
-    .main {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-    }
-
-    /* TOPBAR */
-    .topbar {
-      background: white;
-      padding: 15px 20px;
-      display: flex;
-      justify-content: space-between;
-      border-bottom: 1px solid #ddd;
-    }
-
-    .user {
-      font-weight: bold;
-    }
-
-    /* CONTENT */
-    .content {
-      padding: 20px;
-    }
-
-    /* SEARCH BOX */
-    .search-box {
-      display: flex;
-      gap: 10px;
-      margin-bottom: 20px;
-    }
-
-    .search-box input {
-      flex: 1;
-      padding: 10px;
-      border: 1px solid #ccc;
-      border-radius: 6px;
-    }
-
-    .search-box button {
-      padding: 10px 15px;
-      background: #22c55e;
-      border: none;
-      color: white;
-      border-radius: 6px;
-      cursor: pointer;
-    }
-
-    /* TABLE */
     table {
       width: 100%;
       border-collapse: collapse;
       background: white;
-      border-radius: 10px;
-      overflow: hidden;
     }
 
     th, td {
-      padding: 12px;
-      border-bottom: 1px solid #eee;
-      text-align: left;
-      font-size: 14px;
+      padding: 10px;
+      border: 1px solid #ddd;
     }
 
     th {
-      background: #f1f5f9;
+      background: #34495e;
+      color: white;
     }
 
-    .badge {
-      padding: 4px 8px;
-      border-radius: 6px;
-      background: #e2e8f0;
-      font-size: 12px;
+    tr:hover {
+      background: #f1f1f1;
     }
+
+    button {
+      padding: 5px 10px;
+      margin-right: 5px;
+      cursor: pointer;
+    }
+
+    .view { background: #3498db; color: white; }
+    .delete { background: #e74c3c; color: white; }
   </style>
 </head>
-
 <body>
 
-<!-- SIDEBAR -->
-<div class="sidebar">
-  <h2>💼 CRM PANEL</h2>
-
-  <div class="menu">
-    <a href="#">📊 Dashboard</a>
-    <a href="#">🔎 Search Customer</a>
-    <a href="#">👤 Customer List</a>
-    <a href="#">🚗 Auto Details</a>
-    <a href="#">💰 Collection</a>
-    <a href="#">👨‍💼 Collection Manager</a>
-    <a href="#">📈 Reports</a>
-  </div>
+<div class="header">
+  CRM Dashboard
 </div>
 
-<!-- MAIN -->
-<div class="main">
+<div class="container">
 
-  <!-- TOPBAR -->
-  <div class="topbar">
-    <div>CRM Dashboard</div>
-    <div class="user">
-      Puneet | puneet@sabkaloan.com
-      <button onclick="logout()">Logout</button>
-    </div>
-  </div>
+  <!-- 🔍 LIVE SEARCH -->
+  <input 
+    type="text" 
+    id="search" 
+    placeholder="Search Lead ID / Mobile / Email / PAN / Loan No"
+  />
 
-  <!-- CONTENT -->
-  <div class="content">
+  <!-- 📊 TABLE -->
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Lead ID</th>
+        <th>Mobile</th>
+        <th>Email</th>
+        <th>PAN</th>
+        <th>Loan No</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody id="tableBody"></tbody>
+  </table>
 
-    <h3>🔎 Search Customer</h3>
-
-    <div class="search-box">
-      <input id="searchInput" placeholder="Lead ID / Mobile / Email / PAN / Loan No" />
-      <button onclick="searchCustomer()">Search</button>
-    </div>
-
-    <!-- RESULTS -->
-    <table>
-      <thead>
-        <tr>
-          <th>Lead ID</th>
-          <th>Name</th>
-          <th>Mobile</th>
-          <th>Email</th>
-          <th>PAN</th>
-          <th>Loan No</th>
-          <th>Status</th>
-        </tr>
-      </thead>
-
-      <tbody id="results">
-        <tr>
-          <td colspan="7" style="text-align:center;">No data yet</td>
-        </tr>
-      </tbody>
-    </table>
-
-  </div>
 </div>
 
 <script>
 const API = "https://crm-backend-9kb2.onrender.com";
+let timeout = null;
 
-// 🔐 CHECK LOGIN
-const token = localStorage.getItem("token");
-if (!token) {
-  window.location.href = "login.html";
-}
+// 🔥 LIVE SEARCH (AUTO)
+document.getElementById("search").addEventListener("input", function () {
+  clearTimeout(timeout);
 
-// 🔎 SEARCH FUNCTION
-async function searchCustomer() {
-  const q = document.getElementById("searchInput").value;
+  timeout = setTimeout(() => {
+    searchCustomer(this.value);
+  }, 500); // delay for typing
+});
 
-  const res = await fetch(`${API}/api/users/search?q=${q}`, {
-    headers: {
-      token: token
-    }
-  });
-
-  const data = await res.json();
-
-  const table = document.getElementById("results");
-  table.innerHTML = "";
-
-  if (!data.length) {
-    table.innerHTML = `<tr><td colspan="7">No results found</td></tr>`;
+// 🔍 API CALL
+async function searchCustomer(q) {
+  if (!q) {
+    document.getElementById("tableBody").innerHTML = "";
     return;
   }
 
-  data.forEach(user => {
-    table.innerHTML += `
+  try {
+    const res = await fetch(`${API}/api/users/search?q=${q}`);
+    const data = await res.json();
+    renderTable(data);
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+// 📊 RENDER TABLE
+function renderTable(users) {
+  const tbody = document.getElementById("tableBody");
+  tbody.innerHTML = "";
+
+  if (!users.length) {
+    tbody.innerHTML = "<tr><td colspan='7'>No data found</td></tr>";
+    return;
+  }
+
+  users.forEach(u => {
+    tbody.innerHTML += `
       <tr>
-        <td>${user.leadId || "-"}</td>
-        <td>${user.name || "-"}</td>
-        <td>${user.mobile || "-"}</td>
-        <td>${user.email || "-"}</td>
-        <td>${user.pan || "-"}</td>
-        <td>${user.loanNo || "-"}</td>
-        <td><span class="badge">Active</span></td>
+        <td>${u.name || ""}</td>
+        <td>${u.leadId || ""}</td>
+        <td>${u.mobile || ""}</td>
+        <td>${u.email || ""}</td>
+        <td>${u.pan || ""}</td>
+        <td>${u.loanNo || ""}</td>
+        <td>
+          <button class="view" onclick='viewUser(${JSON.stringify(u)})'>View</button>
+          <button class="delete" onclick='deleteUser("${u._id}")'>Delete</button>
+        </td>
       </tr>
     `;
   });
 }
 
-// 🚪 LOGOUT
-function logout() {
-  localStorage.clear();
-  window.location.href = "login.html";
+// 👁 VIEW USER
+function viewUser(user) {
+  alert(
+    "Name: " + user.name + "\n" +
+    "Mobile: " + user.mobile + "\n" +
+    "Email: " + user.email + "\n" +
+    "PAN: " + user.pan + "\n" +
+    "Loan: " + user.loanNo
+  );
+}
+
+// ❌ DELETE USER (frontend only for now)
+function deleteUser(id) {
+  alert("Delete API next step 🔥\nUser ID: " + id);
 }
 </script>
 
