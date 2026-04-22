@@ -1,22 +1,39 @@
 const router = require("express").Router();
-
-console.log("🔥 userRoutes file loaded");
+const User = require("../models/User");
 
 // =====================
-// TEST ROUTE
+// SEARCH USERS
 // =====================
-router.get("/test", (req, res) => {
-  console.log("✅ TEST ROUTE HIT");
-  res.send("USER ROUTE WORKING ✅");
+router.get("/search", async (req, res) => {
+  try {
+    const q = req.query.q;
+
+    const users = await User.find({
+      $or: [
+        { name: { $regex: q, $options: "i" } },
+        { email: { $regex: q, $options: "i" } },
+        { mobile: { $regex: q, $options: "i" } },
+        { pan: { $regex: q, $options: "i" } },
+        { loanNo: { $regex: q, $options: "i" } },
+      ],
+    });
+
+    res.json(users);
+  } catch (err) {
+    res.status(500).json(err);
+  }
 });
 
-module.exports = router;
 // =====================
 // DELETE USER
 // =====================
 router.delete("/:id", async (req, res) => {
   try {
     await User.findByIdAndDelete(req.params.id);
+
+    // 🔥 REALTIME
+    req.io.emit("userDeleted", req.params.id);
+
     res.json("User deleted");
   } catch (err) {
     res.status(500).json(err);
@@ -33,8 +50,14 @@ router.put("/:id", async (req, res) => {
       req.body,
       { new: true }
     );
+
+    // 🔥 REALTIME
+    req.io.emit("userUpdated", updated);
+
     res.json(updated);
   } catch (err) {
     res.status(500).json(err);
   }
 });
+
+module.exports = router;

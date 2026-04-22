@@ -2,22 +2,20 @@
 <html>
 <head>
   <title>CRM</title>
+
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+
   <style>
     body { margin:0; font-family: Arial; display:flex; }
 
-    /* SIDEBAR */
     .sidebar {
-      width: 200px;
-      background: #2c3e50;
-      color: white;
-      height: 100vh;
-      padding: 20px;
+      width:200px;
+      background:#2c3e50;
+      color:white;
+      height:100vh;
+      padding:20px;
     }
 
-    .sidebar h2 { margin-bottom: 20px; }
-    .sidebar div { margin: 10px 0; cursor:pointer; }
-
-    /* MAIN */
     .main {
       flex:1;
       padding:20px;
@@ -26,22 +24,17 @@
 
     input { padding:10px; width:300px; margin-bottom:20px; }
 
-    table {
-      width:100%;
-      background:white;
-      border-collapse: collapse;
-    }
+    table { width:100%; background:white; border-collapse:collapse; }
 
     th, td { padding:10px; border:1px solid #ddd; }
 
     th { background:#34495e; color:white; }
 
-    button { padding:5px 10px; cursor:pointer; margin-right:5px; }
+    button { padding:5px; margin-right:5px; cursor:pointer; }
 
     .edit { background:orange; color:white; }
     .delete { background:red; color:white; }
 
-    /* MODAL */
     .modal {
       display:none;
       position:fixed;
@@ -57,24 +50,16 @@
       padding:20px;
       width:300px;
     }
-
-    .modal input {
-      width:100%;
-      margin:5px 0;
-    }
   </style>
 </head>
 <body>
 
-<!-- SIDEBAR -->
 <div class="sidebar">
   <h2>CRM</h2>
   <div>Dashboard</div>
   <div>Customers</div>
-  <div>Reports</div>
 </div>
 
-<!-- MAIN -->
 <div class="main">
 
   <h2>Customer List</h2>
@@ -97,22 +82,23 @@
 
 </div>
 
-<!-- MODAL -->
 <div class="modal" id="modal">
   <div class="modal-box">
-    <h3>Edit User</h3>
+    <h3>Edit</h3>
     <input id="name">
     <input id="mobile">
     <input id="email">
     <input id="pan">
     <input id="loanNo">
-    <button onclick="saveUser()">Save</button>
+    <button onclick="save()">Save</button>
     <button onclick="closeModal()">Cancel</button>
   </div>
 </div>
 
 <script>
 const API = "https://crm-backend-9kb2.onrender.com";
+const socket = io(API);
+
 let currentId = null;
 let timeout = null;
 
@@ -144,8 +130,8 @@ function render(users) {
         <td>${u.pan||""}</td>
         <td>${u.loanNo||""}</td>
         <td>
-          <button class="edit" onclick='openEdit(${JSON.stringify(u)})'>Edit</button>
-          <button class="delete" onclick='deleteUser("${u._id}")'>Delete</button>
+          <button class="edit" onclick='edit(${JSON.stringify(u)})'>Edit</button>
+          <button class="delete" onclick='del("${u._id}")'>Delete</button>
         </td>
       </tr>
     `;
@@ -153,47 +139,57 @@ function render(users) {
 }
 
 // DELETE
-async function deleteUser(id) {
-  if (!confirm("Delete user?")) return;
-
-  await fetch(`${API}/api/users/${id}`, { method: "DELETE" });
-  alert("Deleted");
+async function del(id) {
+  await fetch(`${API}/api/users/${id}`, { method:"DELETE" });
 }
 
-// OPEN EDIT
-function openEdit(u) {
+// EDIT
+function edit(u) {
   currentId = u._id;
-  document.getElementById("modal").style.display = "flex";
+  modal.style.display = "flex";
 
-  name.value = u.name || "";
-  mobile.value = u.mobile || "";
-  email.value = u.email || "";
-  pan.value = u.pan || "";
-  loanNo.value = u.loanNo || "";
-}
-
-// CLOSE MODAL
-function closeModal() {
-  document.getElementById("modal").style.display = "none";
+  name.value = u.name||"";
+  mobile.value = u.mobile||"";
+  email.value = u.email||"";
+  pan.value = u.pan||"";
+  loanNo.value = u.loanNo||"";
 }
 
 // SAVE
-async function saveUser() {
+async function save() {
   await fetch(`${API}/api/users/${currentId}`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      name: name.value,
-      mobile: mobile.value,
-      email: email.value,
-      pan: pan.value,
-      loanNo: loanNo.value
+    method:"PUT",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({
+      name:name.value,
+      mobile:mobile.value,
+      email:email.value,
+      pan:pan.value,
+      loanNo:loanNo.value
     })
   });
 
-  alert("Updated");
   closeModal();
 }
+
+// CLOSE
+function closeModal() {
+  modal.style.display = "none";
+}
+
+// =====================
+// 🔥 REALTIME
+// =====================
+
+socket.on("userUpdated", () => {
+  const q = search.value;
+  if (q) search(q);
+});
+
+socket.on("userDeleted", () => {
+  const q = search.value;
+  if (q) search(q);
+});
 </script>
 
 </body>
