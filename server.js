@@ -1,61 +1,47 @@
 require("dotenv").config();
 const express = require("express");
-const mongoose = require("mongoose");
-const cors = require("cors");
-
-const http = require("http");
-const { Server } = require("socket.io");
 
 const app = express();
-const server = http.createServer(app);
 
-// =====================
-// SOCKET.IO
-// =====================
-const io = new Server(server, {
-  cors: { origin: "*" },
-});
-
-// attach io
-app.use((req, res, next) => {
-  req.io = io;
-  next();
-});
-
-io.on("connection", (socket) => {
-  console.log("🔥 User connected:", socket.id);
-});
-
-// =====================
-// MIDDLEWARE
-// =====================
-app.use(cors());
 app.use(express.json());
+
+// =====================
+// START LOG (VERY IMPORTANT)
+// =====================
+console.log("🔥 NEW VERSION DEPLOYED");
 
 // =====================
 // ROUTES
 // =====================
-app.use("/api/auth", require("./routes/auth"));
-app.use("/api/users", require("./routes/userRoutes"));
 
-// =====================
-// TEST
-// =====================
+// ROOT (deployment check)
 app.get("/", (req, res) => {
-  res.send("API WORKING ✅");
+  res.send("NEW VERSION LIVE 🚀");
+});
+
+// TEST
+app.get("/test", (req, res) => {
+  res.send("TEST WORKING ✅");
+});
+
+// HEALTH
+app.get("/health", (req, res) => {
+  res.json({
+    status: "OK",
+    time: new Date().toISOString(),
+  });
+});
+
+// DEBUG: catch all routes
+app.use((req, res) => {
+  res.status(200).send("YOU HIT: " + req.originalUrl);
 });
 
 // =====================
-// DB
+// START SERVER
 // =====================
-mongoose.connect(process.env.MONGO_URI)
-  .then(() => console.log("MongoDB Connected ✅"))
-  .catch(err => console.log(err));
+const PORT = process.env.PORT || 10000;
 
-// =====================
-// START
-// =====================
-const PORT = process.env.PORT || 5000;
-server.listen(PORT, () => {
-  console.log("🚀 Server running on port " + PORT);
+app.listen(PORT, () => {
+  console.log("🚀 Running on port " + PORT);
 });
